@@ -2,32 +2,32 @@ use crate::observable::Observable;
 use crate::observer::Observer;
 use crate::{Subscription, BaseObserver};
 
-pub struct MapObservable<M, O> {
-    map: M,
+pub struct FilterObservable<F, O> {
+    filter: F,
     original: O,
 }
 
-unsafe impl<M, O> Send for MapObservable<M, O> {}
-unsafe impl<M, O> Sync for MapObservable<M, O> {}
+unsafe impl<F, O> Send for FilterObservable<F, O> {}
+unsafe impl<F, O> Sync for FilterObservable<F, O> {}
 
-pub trait MapExt<'a>: Observable<'a> + Sized {
-    fn map<M, I>(self, map: M) -> MapObservable<M, Self> where M: Fn(Self::Item) -> I + 'a {
-        MapObservable { map, original: self }
+pub trait FilterExt<'a>: Observable<'a> + Sized {
+    fn filter<F>(self, map: F) -> FilterObservable<F, Self> where F: Fn(&Self::Item) -> bool + 'a {
+        FilterObservable { filter: map, original: self }
     }
 }
 
-impl<'a, O> MapExt<'a> for O where O: Observable<'a> {}
+impl<'a, O> FilterExt<'a> for O where O: Observable<'a> {}
 
-impl<'a, I, M, O> Observable<'a> for MapObservable<M, O> where O: Observable<'a> + 'a, M: Fn(O::Item) -> I + Clone + 'a, I: 'a {
-    type Item = I;
+impl<'a, F, O> Observable<'a> for FilterObservable<F, O> where O: Observable<'a> + 'a, F: Fn(&O::Item) -> bool + Clone + 'a, O::Item: 'a {
+    type Item = O::Item;
     type Error = O::Error;
 
     fn subscribe(self, obs: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
-        let map = self.map;
+        let filter = self.filter;
         let observer = BaseObserver::new(obs);
         let next = {
             let observer = observer.clone();
-            move |item| observer.on_next(map(item))
+            move |item| { if filter(&item) { observer.on_next(item) } }
         };
         let complete = {
             let observer = observer.clone();
@@ -56,7 +56,7 @@ mod tests {
             let data = data.clone();
             obs
                 .fork()
-                .map(|x| x * 2)
+                .filter(|x| *x > 1)
                 .subscribe(move |x| {
                     data.lock().unwrap().push(x);
                 });
@@ -65,6 +65,6 @@ mod tests {
         obs.on_next(2);
         obs.on_next(3);
 
-        assert_eq!(&vec![2, 4, 6], &*data.lock().unwrap());
+        assert_eq!(&vec![2, 3], &*data.lock().unwrap());
     }
 }
