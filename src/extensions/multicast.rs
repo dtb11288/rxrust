@@ -72,7 +72,7 @@ mod tests {
     use std::cell::RefCell;
 
     #[test]
-    fn r#async() {
+    fn it_works() {
         let obs = BaseObservable::<i32, ()>::new(|sub| {
             std::thread::spawn(move || {
                 let millis = std::time::Duration::from_millis(10);

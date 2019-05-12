@@ -59,7 +59,7 @@ mod tests {
     use std::cell::RefCell;
 
     #[test]
-    fn sync() {
+    fn it_works() {
         let obs = BaseObservable::<i32, ()>::new(|sub| {
             sub.on_next(1);
             sub.on_next(2);

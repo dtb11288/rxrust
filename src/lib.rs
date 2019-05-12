@@ -11,6 +11,7 @@ pub mod prelude {
     pub use crate::extensions::filter::FilterExt;
     pub use crate::extensions::tap::TapExt;
     pub use crate::extensions::fold::FoldExt;
+    pub use crate::extensions::merge::MergeExt;
 }
 
 pub use observable::{BaseObservable, Subscription};

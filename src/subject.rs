@@ -63,7 +63,7 @@ mod tests {
     use crate::Subject;
 
     #[test]
-    fn r#async() {
+    fn it_works() {
         let input = Subject::<i64, ()>::new();
         let data = Arc::new(Mutex::new(Vec::new()));
         {
