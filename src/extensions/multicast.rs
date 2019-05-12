@@ -63,7 +63,7 @@ impl<'a, I, E> Observable<'a> for Multicast<'a, I, E> where I: Clone + 'a, E: Cl
     fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
         let observer = BaseObserver::new(observer);
         self.observers.lock().unwrap().push(observer.fork());
-        Subscription::new(|| { observer.dispose() })
+        Subscription::new(|| observer.dispose())
     }
 }
 

@@ -1,5 +1,6 @@
 mod observable;
 mod observer;
+mod subject;
 mod extensions;
 
 pub mod prelude {
@@ -10,3 +11,4 @@ pub mod prelude {
 
 pub use observable::{BaseObservable, Subscription};
 pub use observer::BaseObserver;
+pub use subject::Subject;

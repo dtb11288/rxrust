@@ -45,7 +45,7 @@ impl<'a, I, E> Observable<'a> for BaseObservable<'a, I, E> where I: 'a, E: 'a {
         let subscribe = self.subscribe;
         let observer = BaseObserver::new(observer);
         subscribe(observer.fork());
-        Subscription::new(move || { observer.dispose() })
+        Subscription::new(move || observer.dispose())
     }
 }
 
