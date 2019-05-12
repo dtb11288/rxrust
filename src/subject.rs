@@ -29,7 +29,7 @@ impl<'a, I, E> Observable<'a> for Subject<'a, I, E> where I: 'a, E: 'a {
     fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
         let mut subscriber = self.subscriber.lock().unwrap();
         let observer = BaseObserver::new(observer);
-        subscriber.replace(observer.fork());
+        subscriber.replace(observer.clone());
         Subscription::new(move || observer.dispose())
     }
 }

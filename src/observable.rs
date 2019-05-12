@@ -25,11 +25,8 @@ pub struct BaseObservable<'a, I, E> {
     subscribe: Box<dyn FnOnce(BaseObserver<'a, I, E>) + 'a>,
 }
 
-impl<'a, I, E> Clone for BaseObservable<'a, I, E> {
-    fn clone(&self) -> Self {
-        unsafe { std::mem::transmute_copy(self) }
-    }
-}
+unsafe impl<'a, I, E> Send for BaseObservable<'a, I, E> {}
+unsafe impl<'a, I, E> Sync for BaseObservable<'a, I, E> {}
 
 impl<'a, I, E> BaseObservable<'a, I, E> {
     pub fn new<F>(subscribe: F) -> Self where F: FnOnce(BaseObserver<'a, I, E>) + 'a {
@@ -44,7 +41,7 @@ impl<'a, I, E> Observable<'a> for BaseObservable<'a, I, E> where I: 'a, E: 'a {
     fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
         let subscribe = self.subscribe;
         let observer = BaseObserver::new(observer);
-        subscribe(observer.fork());
+        subscribe(observer.clone());
         Subscription::new(move || observer.dispose())
     }
 }

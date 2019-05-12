@@ -12,16 +12,18 @@ pub struct BaseObserver<'a, I, E> {
     observer: ObserverBundle<'a, I, E>
 }
 
+impl<'a, I, E> Clone for BaseObserver<'a, I, E> {
+    fn clone(&self) -> Self {
+        Self { observer: self.observer.clone() }
+    }
+}
+
 unsafe impl<'a, I, E> Send for BaseObserver<'a, I, E> {}
 unsafe impl<'a, I, E> Sync for BaseObserver<'a, I, E> {}
 
 impl<'a, I, E> BaseObserver<'a, I, E> {
     pub fn new(observer: impl Observer<I, E> + 'a) -> Self {
         Self { observer: Arc::new(Mutex::new(Some(Box::new(observer)))) }
-    }
-
-    pub fn fork(&self) -> Self {
-        BaseObserver { observer: self.observer.clone() }
     }
 
     pub fn dispose(self) {

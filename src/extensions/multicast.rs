@@ -9,18 +9,12 @@ pub struct Multicast<'a, I, E> {
     observers: ObserverBundle<'a, I, E>,
 }
 
-impl<'a, I, E> Clone for Multicast<'a, I, E> {
-    fn clone(&self) -> Self {
-        unsafe { std::mem::transmute_copy(self) }
-    }
-}
-
 unsafe impl<'a, I, E> Send for Multicast<'a, I, E> {}
 unsafe impl<'a, I, E> Sync for Multicast<'a, I, E> {}
 
 pub trait ShareExt<'a>: Observable<'a> {
     fn share(self) -> Multicast<'a, <Self as Observable<'a>>::Item, <Self as Observable<'a>>::Error>
-        where Self: Clone + Sized + 'a, <Self as Observable<'a>>::Item: Clone + 'a, <Self as Observable<'a>>::Error: Clone + 'a
+        where Self: Sized + 'a, <Self as Observable<'a>>::Item: Clone + 'a, <Self as Observable<'a>>::Error: Clone + 'a
     { Multicast::new(self) }
 }
 
@@ -62,7 +56,7 @@ impl<'a, I, E> Observable<'a> for Multicast<'a, I, E> where I: Clone + 'a, E: Cl
 
     fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
         let observer = BaseObserver::new(observer);
-        self.observers.lock().unwrap().push(observer.fork());
+        self.observers.lock().unwrap().push(observer.clone());
         Subscription::new(|| observer.dispose())
     }
 }
