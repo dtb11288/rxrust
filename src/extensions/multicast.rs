@@ -1,9 +1,10 @@
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use crate::observable::Observable;
 use crate::observer::Observer;
 use crate::{BaseObserver, Subscription};
 
-type ObserverBundle<'a, I, E> = Arc<Mutex<Vec<BaseObserver<'a, I, E>>>>;
+type ObserverBundle<'a, I, E> = Arc<Mutex<Vec<BaseObserver<'a, Rc<I>, Rc<E>>>>>;
 
 pub struct Multicast<'a, I, E> {
     observers: ObserverBundle<'a, I, E>,
@@ -14,19 +15,20 @@ unsafe impl<'a, I, E> Sync for Multicast<'a, I, E> {}
 
 pub trait ShareExt<'a>: Observable<'a> + Sized {
     fn share(self) -> Multicast<'a, <Self as Observable<'a>>::Item, <Self as Observable<'a>>::Error>
-        where Self: 'a, <Self as Observable<'a>>::Item: Clone + 'a, <Self as Observable<'a>>::Error: Clone + 'a
+        where Self: 'a, <Self as Observable<'a>>::Item: 'a, <Self as Observable<'a>>::Error: 'a
     { Multicast::new(self) }
 }
 
 impl<'a, O> ShareExt<'a> for O where O: Observable<'a> {}
 
-impl<'a, I, E> Multicast<'a, I, E> where I: Clone + 'a, E: Clone + 'a {
+impl<'a, I, E> Multicast<'a, I, E> where I: 'a, E: 'a {
     pub fn new<O>(obs: O) -> Self where O: Observable<'a, Item=I, Error=E> + 'a {
         let observers: ObserverBundle<'a, I, E> = Arc::new(Mutex::new(Vec::new()));
         let next = {
             let observers = observers.clone();
-            move |x: I| {
-                observers.lock().unwrap().iter().for_each(|o| o.on_next(x.clone()))
+            move |item: I| {
+                let item = Rc::new(item);
+                observers.lock().unwrap().iter().for_each(|o| o.on_next(item.clone()))
             }
         };
         let complete = {
@@ -38,6 +40,7 @@ impl<'a, I, E> Multicast<'a, I, E> where I: Clone + 'a, E: Clone + 'a {
         let error = {
             let observers = observers.clone();
             move |error: E| {
+                let error = Rc::new(error);
                 observers.lock().unwrap().drain(..).for_each(|o| o.on_error(error.clone()))
             }
         };
@@ -50,9 +53,9 @@ impl<'a, I, E> Multicast<'a, I, E> where I: Clone + 'a, E: Clone + 'a {
     }
 }
 
-impl<'a, I, E> Observable<'a> for Multicast<'a, I, E> where I: Clone + 'a, E: Clone + 'a {
-    type Item = I;
-    type Error = E;
+impl<'a, I, E> Observable<'a> for Multicast<'a, I, E> where I: 'a, E: 'a {
+    type Item = Rc<I>;
+    type Error = Rc<E>;
 
     fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
         let observer = BaseObserver::new(observer);
@@ -88,16 +91,16 @@ mod tests {
         let share_data = Rc::new(RefCell::new(Vec::new()));
         {
             let data = share_data.clone();
-            obs.fork().subscribe(move |x| {
-                data.borrow_mut().push(x);
+            obs.fork().subscribe(move |x: Rc<i32>| {
+                data.borrow_mut().push((&*x).clone());
             });
             let data = share_data.clone();
-            obs.fork().subscribe(move |x| {
-                data.borrow_mut().push(x);
+            obs.fork().subscribe(move |x: Rc<i32>| {
+                data.borrow_mut().push((&*x).clone());
             });
             let data = share_data.clone();
-            obs.fork().subscribe(move |x| {
-                data.borrow_mut().push(x);
+            obs.fork().subscribe(move |x: Rc<i32>| {
+                data.borrow_mut().push((&*x).clone());
             });
         }
         let millis = std::time::Duration::from_millis(50);

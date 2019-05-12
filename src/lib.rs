@@ -40,8 +40,8 @@ mod tests {
             let data = data1.clone();
             obs
                 .fork()
-                .filter(|x| *x > 1)
-                .map(|x| x * 2)
+                .filter(|x| **x > 1)
+                .map(|x| *x * 2)
                 .subscribe(move |x| {
                     data.lock().unwrap().push(x);
                 });
@@ -49,8 +49,8 @@ mod tests {
             let data = data2.clone();
             obs
                 .fork()
-                .filter(|x| *x < 4)
-                .fold(0, |sum, x| sum + x)
+                .filter(|x| **x < 4)
+                .fold(0, |sum, x| { sum + *x })
                 .subscribe(move |x| {
                     data.lock().unwrap().push(x);
                 });
