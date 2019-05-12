@@ -1,5 +1,5 @@
 [package]
-name = "rxrust"
+name = "rx"
 version = "0.1.0"
 authors = ["binh <dau.thanh.binh@gmail.com>"]
 edition = "2018"
