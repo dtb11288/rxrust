@@ -10,6 +10,7 @@ pub mod prelude {
     pub use crate::extensions::map::MapExt;
     pub use crate::extensions::filter::FilterExt;
     pub use crate::extensions::tap::TapExt;
+    pub use crate::extensions::fold::FoldExt;
 }
 
 pub use observable::{BaseObservable, Subscription};
@@ -25,17 +26,18 @@ mod tests {
     #[test]
     fn it_works() {
         let input = Subject::<i32, ()>::new();
-        let share_data = Arc::new(Mutex::new(Vec::new()));
+        let once = Arc::new(Mutex::new(Vec::new()));
+        let data1 = Arc::new(Mutex::new(Vec::new()));
+        let data2 = Arc::new(Mutex::new(Vec::new()));
         {
-            let data = share_data.clone();
+            let data = once.clone();
             let obs = input.fork()
                 .tap(move |x| {
-                    let x = x.clone();
-                    data.lock().unwrap().push(x);
+                    data.lock().unwrap().push(*x);
                 })
                 .share();
 
-            let data = share_data.clone();
+            let data = data1.clone();
             obs
                 .fork()
                 .filter(|x| *x > 1)
@@ -44,11 +46,11 @@ mod tests {
                     data.lock().unwrap().push(x);
                 });
 
-            let data = share_data.clone();
+            let data = data2.clone();
             obs
                 .fork()
-                .filter(|x| *x < 3)
-                .map(|x| x * 5)
+                .filter(|x| *x < 4)
+                .fold(0, |sum, x| sum + x)
                 .subscribe(move |x| {
                     data.lock().unwrap().push(x);
                 });
@@ -56,11 +58,10 @@ mod tests {
         input.on_next(1);
         input.on_next(2);
         input.on_next(3);
+        input.on_next(4);
 
-        assert_eq!(&vec![
-            1, 5,
-            2, 4, 10,
-            3, 6
-        ], &*share_data.lock().unwrap());
+        assert_eq!(&vec![1, 2, 3, 4], &*once.lock().unwrap());
+        assert_eq!(&vec![4, 6, 8], &*data1.lock().unwrap());
+        assert_eq!(&vec![1, 3, 6], &*data2.lock().unwrap());
     }
 }
