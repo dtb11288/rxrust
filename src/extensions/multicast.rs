@@ -8,6 +8,7 @@ type ObserverBundle<'a, I, E> = Rc<RefCell<Vec<BaseObserver<'a, Rc<I>, Rc<E>>>>>
 
 pub struct Multicast<'a, I, E> {
     observers: ObserverBundle<'a, I, E>,
+    subscription: Rc<RefCell<Option<Subscription<'a>>>>,
 }
 
 unsafe impl<'a, I, E> Send for Multicast<'a, I, E> {}
@@ -22,7 +23,7 @@ pub trait ShareExt<'a>: Observable<'a> + Sized {
 impl<'a, O> ShareExt<'a> for O where O: Observable<'a> {}
 
 impl<'a, I, E> Multicast<'a, I, E> {
-    pub fn new<O>(obs: O) -> Self where O: Observable<'a, Item=I, Error=E> + 'a {
+    pub fn new<O>(original: O) -> Self where O: Observable<'a, Item=I, Error=E> + 'a {
         let observers: ObserverBundle<'a, I, E> = Rc::new(RefCell::new(Vec::new()));
         let next = {
             let observers = observers.clone();
@@ -44,12 +45,12 @@ impl<'a, I, E> Multicast<'a, I, E> {
                 observers.borrow_mut().drain(..).for_each(move |o| o.on_error(error.clone()))
             }
         };
-        obs.subscribe((next, error, complete));
-        Self { observers }
+        let sub = original.subscribe((next, error, complete));
+        Self { observers, subscription: Rc::new(RefCell::new(Some(sub))) }
     }
 
     pub fn fork(&self) -> Self {
-        Self { observers: self.observers.clone() }
+        Self { observers: self.observers.clone(), subscription: self.subscription.clone() }
     }
 }
 
@@ -60,7 +61,17 @@ impl<'a, I, E> Observable<'a> for Multicast<'a, I, E> {
     fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
         let observer = BaseObserver::new(observer);
         self.observers.borrow_mut().push(observer.clone());
-        Subscription::new(|| observer.dispose())
+        Subscription::new(move || {
+            let mut observers = self.observers.borrow_mut();
+            if let Some(index) = observers.iter().position(|o| o.id() == observer.id()) {
+                observers.remove(index);
+            }
+            if observers.is_empty() {
+                if let Some(sub) = self.subscription.borrow_mut().take() {
+                    sub.unsubscribe()
+                }
+            }
+        })
     }
 }
 

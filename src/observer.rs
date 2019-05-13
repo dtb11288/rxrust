@@ -1,5 +1,6 @@
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::time::SystemTime;
 
 pub trait Observer<I, E> {
     fn on_next(&self, item: I);
@@ -10,12 +11,13 @@ pub trait Observer<I, E> {
 type ObserverBundle<'a, I, E> = Rc<RefCell<Option<Box<dyn BoxedObserver<I, E> + 'a>>>>;
 
 pub struct BaseObserver<'a, I: 'a, E: 'a> {
+    id: u128,
     observer: ObserverBundle<'a, I, E>
 }
 
 impl<'a, I, E> Clone for BaseObserver<'a, I, E> {
     fn clone(&self) -> Self {
-        Self { observer: self.observer.clone() }
+        Self { id: self.id, observer: self.observer.clone() }
     }
 }
 
@@ -24,7 +26,12 @@ unsafe impl<'a, I, E> Sync for BaseObserver<'a, I, E> {}
 
 impl<'a, I, E> BaseObserver<'a, I, E> {
     pub fn new(observer: impl Observer<I, E> + 'a) -> Self {
-        Self { observer: Rc::new(RefCell::new(Some(Box::new(observer)))) }
+        let id = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
+        Self { id, observer: Rc::new(RefCell::new(Some(Box::new(observer)))) }
+    }
+
+    pub fn id(&self) -> u128 {
+        self.id
     }
 
     pub fn dispose(self) {

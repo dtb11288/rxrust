@@ -21,27 +21,25 @@ pub trait FlatMapExt<'a>: Observable<'a> + Sized {
 impl<'a, O> FlatMapExt<'a> for O where O: Observable<'a> {}
 
 impl<'a, FM, O, OO> Observable<'a> for FlatMapObservable<FM, O>
-    where O: Observable<'a> + 'a,
-          OO: Observable<'a, Error=O::Error> + 'a,
+    where O: Observable<'a, Error=OO::Error> + 'a,
+          OO: Observable<'a> + 'a,
           FM: Fn(O::Item) -> OO + Clone + 'a,
 {
     type Item = OO::Item;
-    type Error = O::Error;
+    type Error = OO::Error;
 
     fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
         let and_then = self.and_then;
         let observer = BaseObserver::new(observer);
         let completed = Rc::new(RefCell::new(false));
         let counting = Rc::new(RefCell::new(0));
-        let all_completed = Rc::new(RefCell::new(0));
         let next = {
             let observer = observer.clone();
-            let counting = counting.clone();
             let completed = completed.clone();
-            let all_completed = all_completed.clone();
+            let counting = counting.clone();
             move |item| {
-                let observable = and_then(item);
                 *counting.clone().borrow_mut() += 1;
+                let observable = and_then(item);
                 let observer = observer.clone();
                 let next = {
                     let observer = observer.clone();
@@ -51,12 +49,10 @@ impl<'a, FM, O, OO> Observable<'a> for FlatMapObservable<FM, O>
                     let observer = observer.clone();
                     let completed = completed.clone();
                     let counting = counting.clone();
-                    let all_completed = all_completed.clone();
                     move || {
-                        if *&*completed.borrow() && &*counting.borrow() == &*all_completed.borrow() {
+                        *counting.borrow_mut() -= 1;
+                        if *&*completed.borrow() && *&*counting.borrow() == 0 {
                             observer.on_completed()
-                        } else {
-                            *all_completed.borrow_mut() += 1;
                         }
                     }
                 };
@@ -68,7 +64,7 @@ impl<'a, FM, O, OO> Observable<'a> for FlatMapObservable<FM, O>
             let observer = observer.clone();
             move || {
                 completed.replace(true);
-                if &*counting.borrow() == &*all_completed.borrow() {
+                if *&*counting.borrow() == 0 {
                     observer.on_completed()
                 }
             }
@@ -76,8 +72,8 @@ impl<'a, FM, O, OO> Observable<'a> for FlatMapObservable<FM, O>
         let error = {
             move |_e| {}
         };
-        self.original.subscribe((next, error, complete));
-        Subscription::new(|| observer.dispose())
+        let sub = self.original.subscribe((next, error, complete));
+        Subscription::new(|| sub.unsubscribe())
     }
 }
 
@@ -97,9 +93,17 @@ mod tests {
             input.fork()
                 .and_then(move |x| {
                     BaseObservable::new(move |sub| {
-                        sub.on_next(x + 1);
-                        sub.on_next(x + 2);
-                        sub.on_completed();
+                        let millis = std::time::Duration::from_millis(50);
+                        std::thread::sleep(millis);
+                        std::thread::spawn(move || {
+                            sub.on_next(x + 1);
+                            let millis = std::time::Duration::from_millis(50);
+                            std::thread::sleep(millis);
+                            sub.on_next(x + 2);
+                            let millis = std::time::Duration::from_millis(50);
+                            std::thread::sleep(millis);
+                            sub.on_completed();
+                        });
                     })
                 })
                 .subscribe((
@@ -116,10 +120,22 @@ mod tests {
         }
 
         input.on_next(1);
+        let millis = std::time::Duration::from_millis(50);
+        std::thread::sleep(millis);
         input.on_next(2);
+        let millis = std::time::Duration::from_millis(50);
+        std::thread::sleep(millis);
         input.on_next(3);
+        let millis = std::time::Duration::from_millis(50);
+        std::thread::sleep(millis);
         input.on_completed();
 
+        let millis = std::time::Duration::from_millis(20);
+        std::thread::sleep(millis);
+        assert_eq!(&vec![2, 3, 3, 4, 4, 5], &*data.lock().unwrap());
+
+        let millis = std::time::Duration::from_millis(200);
+        std::thread::sleep(millis);
         assert_eq!(&vec![2, 3, 3, 4, 4, 5, 10], &*data.lock().unwrap());
     }
 }

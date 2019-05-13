@@ -17,6 +17,7 @@ impl<'a> Subscription<'a> {
     }
 
     pub fn unsubscribe(self) {
+        println!("fucking shit");
         (self.unsubscribe)()
     }
 }
