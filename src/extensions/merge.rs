@@ -1,8 +1,8 @@
+use std::rc::Rc;
+use std::cell::RefCell;
 use crate::observable::Observable;
 use crate::observer::Observer;
 use crate::{Subscription, BaseObserver};
-use std::rc::Rc;
-use std::cell::RefCell;
 
 pub struct MergeObservable<O, OO> {
     original: O,

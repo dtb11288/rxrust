@@ -1,10 +1,10 @@
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::cell::RefCell;
 use crate::observable::Observable;
 use crate::observer::Observer;
 use crate::{BaseObserver, Subscription};
 
-type ObserverBundle<'a, I, E> = Arc<Mutex<Vec<BaseObserver<'a, Rc<I>, Rc<E>>>>>;
+type ObserverBundle<'a, I, E> = Rc<RefCell<Vec<BaseObserver<'a, Rc<I>, Rc<E>>>>>;
 
 pub struct Multicast<'a, I, E> {
     observers: ObserverBundle<'a, I, E>,
@@ -23,25 +23,25 @@ impl<'a, O> ShareExt<'a> for O where O: Observable<'a> {}
 
 impl<'a, I, E> Multicast<'a, I, E> where I: 'a, E: 'a {
     pub fn new<O>(obs: O) -> Self where O: Observable<'a, Item=I, Error=E> + 'a {
-        let observers: ObserverBundle<'a, I, E> = Arc::new(Mutex::new(Vec::new()));
+        let observers: ObserverBundle<'a, I, E> = Rc::new(RefCell::new(Vec::new()));
         let next = {
             let observers = observers.clone();
             move |item: I| {
                 let item = Rc::new(item);
-                observers.lock().unwrap().iter().for_each(|o| o.on_next(item.clone()))
+                observers.borrow_mut().iter().for_each(|o| o.on_next(item.clone()))
             }
         };
         let complete = {
             let observers = observers.clone();
             move || {
-                observers.lock().unwrap().drain(..).for_each(|o| o.on_completed())
+                observers.borrow_mut().drain(..).for_each(|o| o.on_completed())
             }
         };
         let error = {
             let observers = observers.clone();
             move |error: E| {
                 let error = Rc::new(error);
-                observers.lock().unwrap().drain(..).for_each(|o| o.on_error(error.clone()))
+                observers.borrow_mut().drain(..).for_each(|o| o.on_error(error.clone()))
             }
         };
         obs.subscribe((next, error, complete));
@@ -59,7 +59,7 @@ impl<'a, I, E> Observable<'a> for Multicast<'a, I, E> where I: 'a, E: 'a {
 
     fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
         let observer = BaseObserver::new(observer);
-        self.observers.lock().unwrap().push(observer.clone());
+        self.observers.borrow_mut().push(observer.clone());
         Subscription::new(|| observer.dispose())
     }
 }
@@ -92,15 +92,15 @@ mod tests {
         {
             let data = share_data.clone();
             obs.fork().subscribe(move |x: Rc<i32>| {
-                data.borrow_mut().push((&*x).clone());
+                data.borrow_mut().push(*&*x);
             });
             let data = share_data.clone();
             obs.fork().subscribe(move |x: Rc<i32>| {
-                data.borrow_mut().push((&*x).clone());
+                data.borrow_mut().push(*&*x);
             });
             let data = share_data.clone();
             obs.fork().subscribe(move |x: Rc<i32>| {
-                data.borrow_mut().push((&*x).clone());
+                data.borrow_mut().push(*&*x);
             });
         }
         let millis = std::time::Duration::from_millis(50);

@@ -1,9 +1,10 @@
-use std::sync::{Arc, Mutex};
+use std::rc::Rc;
+use std::cell::RefCell;
 use crate::observer::Observer;
 use crate::observable::Observable;
 use crate::{BaseObserver, Subscription};
 
-type ObserverBundle<'a, I, E> = Arc<Mutex<Option<BaseObserver<'a, I, E>>>>;
+type ObserverBundle<'a, I, E> = Rc<RefCell<Option<BaseObserver<'a, I, E>>>>;
 
 pub struct Subject<'a, I, E> {
     subscriber: ObserverBundle<'a, I, E>
@@ -14,7 +15,7 @@ unsafe impl<'a, I, E> Sync for Subject<'a, I, E> {}
 
 impl<'a, I, E> Subject<'a, I, E> {
     pub fn new() -> Self {
-        Self { subscriber: Arc::new(Mutex::new(None)) }
+        Self { subscriber: Rc::new(RefCell::new(None)) }
     }
 
     pub fn fork(&self) -> Self {
@@ -27,30 +28,27 @@ impl<'a, I, E> Observable<'a> for Subject<'a, I, E> where I: 'a, E: 'a {
     type Error = E;
 
     fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
-        let mut subscriber = self.subscriber.lock().unwrap();
         let observer = BaseObserver::new(observer);
-        subscriber.replace(observer.clone());
+        self.subscriber.borrow_mut().replace(observer.clone());
         Subscription::new(move || observer.dispose())
     }
 }
 
 impl<'a, I, E> Observer<I, E> for Subject<'a, I, E> {
     fn on_next(&self, item: I) {
-        if let Some(sub) = self.subscriber.lock().unwrap().as_ref() {
+        if let Some(sub) = self.subscriber.borrow_mut().as_ref() {
             sub.on_next(item)
         }
     }
 
     fn on_error(self, error: E) {
-        if self.subscriber.lock().unwrap().is_some() {
-            let sub = self.subscriber.lock().unwrap().take().unwrap();
+        if let Some(sub) =  self.subscriber.borrow_mut().take() {
             sub.on_error(error)
         }
     }
 
     fn on_completed(self) {
-        if self.subscriber.lock().unwrap().is_some() {
-            let sub = self.subscriber.lock().unwrap().take().unwrap();
+        if let Some(sub) =  self.subscriber.borrow_mut().take() {
             sub.on_completed()
         }
     }

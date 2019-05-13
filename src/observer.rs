@@ -1,4 +1,5 @@
-use std::sync::{Arc, Mutex};
+use std::rc::Rc;
+use std::cell::RefCell;
 
 pub trait Observer<I, E> {
     fn on_next(&self, item: I);
@@ -6,7 +7,7 @@ pub trait Observer<I, E> {
     fn on_completed(self);
 }
 
-type ObserverBundle<'a, I, E> = Arc<Mutex<Option<Box<dyn BoxedObserver<I, E> + 'a>>>>;
+type ObserverBundle<'a, I, E> = Rc<RefCell<Option<Box<dyn BoxedObserver<I, E> + 'a>>>>;
 
 pub struct BaseObserver<'a, I, E> {
     observer: ObserverBundle<'a, I, E>
@@ -23,29 +24,29 @@ unsafe impl<'a, I, E> Sync for BaseObserver<'a, I, E> {}
 
 impl<'a, I, E> BaseObserver<'a, I, E> {
     pub fn new(observer: impl Observer<I, E> + 'a) -> Self {
-        Self { observer: Arc::new(Mutex::new(Some(Box::new(observer)))) }
+        Self { observer: Rc::new(RefCell::new(Some(Box::new(observer)))) }
     }
 
     pub fn dispose(self) {
-        self.observer.lock().unwrap().take();
+        self.observer.borrow_mut().take();
     }
 }
 
 impl<'a, I, E> Observer<I, E> for BaseObserver<'a, I, E> {
     fn on_next(&self, item: I) {
-        if let Some(observer) = self.observer.lock().unwrap().as_ref() {
+        if let Some(observer) = self.observer.borrow_mut().as_ref() {
             observer.on_next(item)
         }
     }
 
     fn on_error(self, error: E) {
-        if let Some(observer) = self.observer.lock().unwrap().take() {
+        if let Some(observer) = self.observer.borrow_mut().take() {
             observer.on_error_box(error)
         }
     }
 
     fn on_completed(self) {
-        if let Some(observer) = self.observer.lock().unwrap().take() {
+        if let Some(observer) = self.observer.borrow_mut().take() {
             observer.on_completed_box()
         }
     }
