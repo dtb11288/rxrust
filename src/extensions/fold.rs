@@ -32,8 +32,7 @@ impl<'a, A, F, O> Observable<'a> for FoldObservable<A, F, O> where F: Fn(A, O::I
             let obs = observer.clone();
             move |item| {
                 let mut init = init.lock().unwrap();
-                let init_value = unsafe { std::mem::transmute_copy(&*init) };
-                let acc = fold(init_value, item);
+                let acc = fold(unsafe { std::mem::transmute_copy(&*init) }, item);
                 *init = unsafe { std::mem::transmute_copy(&acc) };
                 obs.on_next(acc);
             }

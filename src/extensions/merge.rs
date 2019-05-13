@@ -1,6 +1,8 @@
 use crate::observable::Observable;
 use crate::observer::Observer;
 use crate::{Subscription, BaseObserver};
+use std::rc::Rc;
+use std::cell::RefCell;
 
 pub struct MergeObservable<O, OO> {
     original: O,
@@ -29,8 +31,15 @@ impl<'a, O, OO> Observable<'a> for MergeObservable<O, OO> where O: Observable<'a
             move |item| observer.on_next(item)
         };
         let complete = {
+            let completed = Rc::new(RefCell::new(false));
             let observer = observer.clone();
-            move || observer.on_completed()
+            move || {
+                if *&*completed.borrow() {
+                    observer.on_completed()
+                } else {
+                    completed.replace(true);
+                }
+            }
         };
         let error = {
             let observer = observer.clone();
@@ -56,11 +65,14 @@ mod tests {
         let data = Arc::new(Mutex::new(Vec::new()));
         {
             let data = data.clone();
+            let finish = data.clone();
             input.fork()
                 .merge(input2.fork())
-                .subscribe(move |x| {
-                    data.lock().unwrap().push(x);
-                });
+                .subscribe((
+                    move |x| { data.lock().unwrap().push(x); },
+                    move |e| {},
+                    move || { finish.lock().unwrap().push(10); }
+                ));
         }
 
         input.on_next(1);
@@ -68,8 +80,10 @@ mod tests {
         input.on_next(3);
         input2.on_next(1);
         input.on_next(2);
+        input.on_completed();
         input2.on_next(3);
+        input2.on_completed();
 
-        assert_eq!(&vec![1, 2, 3, 1, 2, 3], &*data.lock().unwrap());
+        assert_eq!(&vec![1, 2, 3, 1, 2, 3, 10], &*data.lock().unwrap());
     }
 }
