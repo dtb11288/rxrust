@@ -21,7 +21,7 @@ impl<'a> Subscription<'a> {
     }
 }
 
-pub struct BaseObservable<'a, I, E> {
+pub struct BaseObservable<'a, I: 'a, E: 'a> {
     subscribe: Box<dyn FnOnce(BaseObserver<'a, I, E>) + 'a>,
 }
 
@@ -34,7 +34,7 @@ impl<'a, I, E> BaseObservable<'a, I, E> {
     }
 }
 
-impl<'a, I, E> Observable<'a> for BaseObservable<'a, I, E> where I: 'a, E: 'a {
+impl<'a, I, E> Observable<'a> for BaseObservable<'a, I, E> {
     type Item = I;
     type Error = E;
 
@@ -82,21 +82,29 @@ mod tests {
                 let millis = std::time::Duration::from_millis(100);
                 std::thread::sleep(millis);
                 sub.on_next(4);
+                let millis = std::time::Duration::from_millis(100);
+                std::thread::sleep(millis);
+                sub.on_next(5);
             });
         });
         let data = Rc::new(RefCell::new(Vec::new()));
-        {
+        let sub = {
             let data = data.clone();
             obs.subscribe(move |x| {
                 data.borrow_mut().push(x);
-            });
-        }
+            })
+        };
 
         assert_eq!(&Vec::<i32>::new(), &*data.borrow_mut());
 
         let millis = std::time::Duration::from_millis(150);
         std::thread::sleep(millis);
         assert_eq!(&vec![1, 2, 3], &*data.borrow_mut());
+
+        let millis = std::time::Duration::from_millis(100);
+        std::thread::sleep(millis);
+        assert_eq!(&vec![1, 2, 3, 4], &*data.borrow_mut());
+        sub.unsubscribe();
 
         let millis = std::time::Duration::from_millis(100);
         std::thread::sleep(millis);

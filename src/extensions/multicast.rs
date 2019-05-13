@@ -21,27 +21,27 @@ pub trait ShareExt<'a>: Observable<'a> + Sized {
 
 impl<'a, O> ShareExt<'a> for O where O: Observable<'a> {}
 
-impl<'a, I, E> Multicast<'a, I, E> where I: 'a, E: 'a {
+impl<'a, I, E> Multicast<'a, I, E> {
     pub fn new<O>(obs: O) -> Self where O: Observable<'a, Item=I, Error=E> + 'a {
         let observers: ObserverBundle<'a, I, E> = Rc::new(RefCell::new(Vec::new()));
         let next = {
             let observers = observers.clone();
             move |item: I| {
                 let item = Rc::new(item);
-                observers.borrow_mut().iter().for_each(|o| o.on_next(item.clone()))
+                observers.borrow_mut().iter().for_each(move |o| o.on_next(item.clone()))
             }
         };
         let complete = {
             let observers = observers.clone();
             move || {
-                observers.borrow_mut().drain(..).for_each(|o| o.on_completed())
+                observers.borrow_mut().drain(..).for_each(move |o| o.on_completed())
             }
         };
         let error = {
             let observers = observers.clone();
             move |error: E| {
                 let error = Rc::new(error);
-                observers.borrow_mut().drain(..).for_each(|o| o.on_error(error.clone()))
+                observers.borrow_mut().drain(..).for_each(move |o| o.on_error(error.clone()))
             }
         };
         obs.subscribe((next, error, complete));
@@ -53,7 +53,7 @@ impl<'a, I, E> Multicast<'a, I, E> where I: 'a, E: 'a {
     }
 }
 
-impl<'a, I, E> Observable<'a> for Multicast<'a, I, E> where I: 'a, E: 'a {
+impl<'a, I, E> Observable<'a> for Multicast<'a, I, E> {
     type Item = Rc<I>;
     type Error = Rc<E>;
 

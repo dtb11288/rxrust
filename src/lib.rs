@@ -3,6 +3,7 @@ mod observer;
 mod subject;
 mod extensions;
 
+pub mod factory;
 pub mod prelude {
     pub use crate::observable::Observable;
     pub use crate::observer::Observer;
@@ -12,8 +13,8 @@ pub mod prelude {
     pub use crate::extensions::tap::TapExt;
     pub use crate::extensions::fold::FoldExt;
     pub use crate::extensions::merge::MergeExt;
+    pub use crate::extensions::flat_map::FlatMapExt;
 }
-
 pub use observable::{BaseObservable, Subscription};
 pub use observer::BaseObserver;
 pub use subject::Subject;

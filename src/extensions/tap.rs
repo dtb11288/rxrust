@@ -40,7 +40,7 @@ impl<'a, T, O> Observable<'a> for TapObservable<T, O> where O: Observable<'a> + 
             let observer = observer.clone();
             move |error| observer.on_error(error)
         };
-        self.original.subscribe((next, error, complete));
-        Subscription::new(|| observer.dispose())
+        let sub = self.original.subscribe((next, error, complete));
+        Subscription::new(|| sub.unsubscribe())
     }
 }

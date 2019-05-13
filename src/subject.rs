@@ -23,7 +23,7 @@ impl<'a, I, E> Subject<'a, I, E> {
     }
 }
 
-impl<'a, I, E> Observable<'a> for Subject<'a, I, E> where I: 'a, E: 'a {
+impl<'a, I, E> Observable<'a> for Subject<'a, I, E> {
     type Item = I;
     type Error = E;
 

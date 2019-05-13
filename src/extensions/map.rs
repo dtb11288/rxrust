@@ -22,9 +22,9 @@ impl<'a, I, M, O> Observable<'a> for MapObservable<M, O> where O: Observable<'a>
     type Item = I;
     type Error = O::Error;
 
-    fn subscribe(self, obs: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
         let map = self.map;
-        let observer = BaseObserver::new(obs);
+        let observer = BaseObserver::new(observer);
         let next = {
             let observer = observer.clone();
             move |item| observer.on_next(map(item))
@@ -37,8 +37,8 @@ impl<'a, I, M, O> Observable<'a> for MapObservable<M, O> where O: Observable<'a>
             let observer = observer.clone();
             move |error| observer.on_error(error)
         };
-        self.original.subscribe((next, error, complete));
-        Subscription::new(|| observer.dispose())
+        let sub = self.original.subscribe((next, error, complete));
+        Subscription::new(|| sub.unsubscribe())
     }
 }
 

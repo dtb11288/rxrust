@@ -45,8 +45,8 @@ impl<'a, A, F, O> Observable<'a> for FoldObservable<A, F, O> where F: Fn(A, O::I
             let obs = observer.clone();
             move |error| obs.on_error(error)
         };
-        self.original.subscribe((next, error, complete));
-        Subscription::new(|| observer.dispose())
+        let sub = self.original.subscribe((next, error, complete));
+        Subscription::new(|| sub.unsubscribe())
     }
 }
 

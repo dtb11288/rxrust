@@ -9,7 +9,7 @@ pub trait Observer<I, E> {
 
 type ObserverBundle<'a, I, E> = Rc<RefCell<Option<Box<dyn BoxedObserver<I, E> + 'a>>>>;
 
-pub struct BaseObserver<'a, I, E> {
+pub struct BaseObserver<'a, I: 'a, E: 'a> {
     observer: ObserverBundle<'a, I, E>
 }
 

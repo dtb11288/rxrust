@@ -46,9 +46,12 @@ impl<'a, O, OO> Observable<'a> for MergeObservable<O, OO> where O: Observable<'a
             move |error| observer.on_error(error)
         };
         let obs = (next, error, complete);
-        self.original.subscribe(obs.clone());
-        self.other.subscribe(obs);
-        Subscription::new(|| observer.dispose())
+        let sub1 = self.original.subscribe(obs.clone());
+        let sub2 = self.other.subscribe(obs);
+        Subscription::new(move || {
+            sub1.unsubscribe();
+            sub2.unsubscribe();
+        })
     }
 }
 
@@ -70,7 +73,7 @@ mod tests {
                 .merge(input2.fork())
                 .subscribe((
                     move |x| { data.lock().unwrap().push(x); },
-                    move |e| {},
+                    move |_| {},
                     move || { finish.lock().unwrap().push(10); }
                 ));
         }
