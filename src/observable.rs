@@ -11,13 +11,15 @@ pub struct Subscription<'a> {
     unsubscribe: Box<dyn FnOnce() + 'a>
 }
 
+unsafe impl<'a> Send for Subscription<'a> {}
+unsafe impl<'a> Sync for Subscription<'a> {}
+
 impl<'a> Subscription<'a> {
     pub fn new(f: impl FnOnce() + 'a) -> Self {
         Self { unsubscribe: Box::new(f) }
     }
 
     pub fn unsubscribe(self) {
-        println!("fucking shit");
         (self.unsubscribe)()
     }
 }
