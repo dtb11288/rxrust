@@ -4,8 +4,8 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use crate::{Subscription, BaseObserver};
 use std::collections::HashMap;
-use std::time::SystemTime;
 use std::sync::Mutex;
+use rand::Rng;
 
 pub struct FlatMapObservable<FM, O> {
     and_then: FM,
@@ -41,7 +41,7 @@ impl<'a, FM, O, OO> Observable<'a> for FlatMapObservable<FM, O>
             let completed = completed.clone();
             let subs = subs.clone();
             move |item| {
-                let id = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
+                let id: u8 = rand::thread_rng().gen();
                 let observable = and_then(item);
                 let observer = observer.clone();
                 let next = {
