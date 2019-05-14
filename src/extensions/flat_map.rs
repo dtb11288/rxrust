@@ -3,6 +3,9 @@ use crate::observer::Observer;
 use std::rc::Rc;
 use std::cell::RefCell;
 use crate::{Subscription, BaseObserver};
+use std::collections::HashMap;
+use std::time::SystemTime;
+use std::sync::Mutex;
 
 pub struct FlatMapObservable<FM, O> {
     and_then: FM,
@@ -32,13 +35,13 @@ impl<'a, FM, O, OO> Observable<'a> for FlatMapObservable<FM, O>
         let and_then = self.and_then;
         let observer = BaseObserver::new(observer);
         let completed = Rc::new(RefCell::new(false));
-        let counting = Rc::new(RefCell::new(0));
+        let subs = Rc::new(Mutex::new(HashMap::new()));
         let next = {
             let observer = observer.clone();
             let completed = completed.clone();
-            let counting = counting.clone();
+            let subs = subs.clone();
             move |item| {
-                *counting.clone().borrow_mut() += 1;
+                let id = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
                 let observable = and_then(item);
                 let observer = observer.clone();
                 let next = {
@@ -48,32 +51,36 @@ impl<'a, FM, O, OO> Observable<'a> for FlatMapObservable<FM, O>
                 let complete = {
                     let observer = observer.clone();
                     let completed = completed.clone();
-                    let counting = counting.clone();
+                    let subs = subs.clone();
                     move || {
-                        *counting.borrow_mut() -= 1;
-                        if *&*completed.borrow() && *&*counting.borrow() == 0 {
+                        let mut subs = subs.lock().unwrap();
+                        subs.remove(&id);
+                        if *&*completed.borrow() && subs.len() == 0 {
                             observer.on_completed()
                         }
                     }
                 };
-                let error = |_| {};
-                observable.subscribe((next, error, complete));
+                let error = move |error| observer.on_error(error);
+                let sub = observable.subscribe((next, error, complete));
+                subs.lock().unwrap().insert(id, sub);
             }
         };
         let complete = {
             let observer = observer.clone();
+            let subs = subs.clone();
             move || {
                 completed.replace(true);
-                if *&*counting.borrow() == 0 {
+                if subs.lock().unwrap().len() == 0 {
                     observer.on_completed()
                 }
             }
         };
-        let error = {
-            move |_e| {}
-        };
+        let error = move |error| observer.on_error(error);
         let sub = self.original.subscribe((next, error, complete));
-        Subscription::new(|| sub.unsubscribe())
+        Subscription::new(move || {
+            subs.lock().unwrap().drain().into_iter().for_each(move |(_, sub)| sub.unsubscribe());
+            sub.unsubscribe();
+        })
     }
 }
 

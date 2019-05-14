@@ -33,10 +33,7 @@ impl<'a, I, M, O> Observable<'a> for MapObservable<M, O> where O: Observable<'a>
             let observer = observer.clone();
             move || observer.on_completed()
         };
-        let error = {
-            let observer = observer.clone();
-            move |error| observer.on_error(error)
-        };
+        let error = move |error| observer.on_error(error);
         let sub = self.original.subscribe((next, error, complete));
         Subscription::new(|| sub.unsubscribe())
     }

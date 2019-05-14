@@ -1,6 +1,6 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use std::time::SystemTime;
+use std::sync::Mutex;
+use std::rc::Rc;
 
 pub trait Observer<I, E> {
     fn on_next(&self, item: I);
@@ -8,7 +8,7 @@ pub trait Observer<I, E> {
     fn on_completed(self);
 }
 
-type ObserverBundle<'a, I, E> = Rc<RefCell<Option<Box<dyn BoxedObserver<I, E> + 'a>>>>;
+type ObserverBundle<'a, I, E> = Rc<Mutex<Option<Box<dyn BoxedObserver<I, E> + 'a>>>>;
 
 pub struct BaseObserver<'a, I: 'a, E: 'a> {
     id: u128,
@@ -27,7 +27,7 @@ unsafe impl<'a, I, E> Sync for BaseObserver<'a, I, E> {}
 impl<'a, I, E> BaseObserver<'a, I, E> {
     pub fn new(observer: impl Observer<I, E> + 'a) -> Self {
         let id = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis();
-        Self { id, observer: Rc::new(RefCell::new(Some(Box::new(observer)))) }
+        Self { id, observer: Rc::new(Mutex::new(Some(Box::new(observer)))) }
     }
 
     pub fn id(&self) -> u128 {
@@ -35,25 +35,25 @@ impl<'a, I, E> BaseObserver<'a, I, E> {
     }
 
     pub fn dispose(self) {
-        self.observer.borrow_mut().take();
+        self.observer.lock().unwrap().take();
     }
 }
 
 impl<'a, I, E> Observer<I, E> for BaseObserver<'a, I, E> {
     fn on_next(&self, item: I) {
-        if let Some(observer) = self.observer.borrow_mut().as_ref() {
+        if let Some(observer) = self.observer.lock().unwrap().as_ref() {
             observer.on_next(item)
         }
     }
 
     fn on_error(self, error: E) {
-        if let Some(observer) = self.observer.borrow_mut().take() {
+        if let Some(observer) = self.observer.lock().unwrap().take() {
             observer.on_error_box(error)
         }
     }
 
     fn on_completed(self) {
-        if let Some(observer) = self.observer.borrow_mut().take() {
+        if let Some(observer) = self.observer.lock().unwrap().take() {
             observer.on_completed_box()
         }
     }

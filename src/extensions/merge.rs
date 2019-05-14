@@ -41,10 +41,7 @@ impl<'a, O, OO> Observable<'a> for MergeObservable<O, OO> where O: Observable<'a
                 }
             }
         };
-        let error = {
-            let observer = observer.clone();
-            move |error| observer.on_error(error)
-        };
+        let error = move |error| observer.on_error(error);
         let obs = (next, error, complete);
         let sub1 = self.original.subscribe(obs.clone());
         let sub2 = self.other.subscribe(obs);

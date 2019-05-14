@@ -36,10 +36,7 @@ impl<'a, T, O> Observable<'a> for TapObservable<T, O> where O: Observable<'a> + 
             let observer = observer.clone();
             move || observer.on_completed()
         };
-        let error = {
-            let observer = observer.clone();
-            move |error| observer.on_error(error)
-        };
+        let error = move |error| observer.on_error(error);
         let sub = self.original.subscribe((next, error, complete));
         Subscription::new(|| sub.unsubscribe())
     }

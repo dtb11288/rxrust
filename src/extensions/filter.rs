@@ -33,12 +33,9 @@ impl<'a, F, O> Observable<'a> for FilterObservable<F, O> where O: Observable<'a>
             let observer = observer.clone();
             move || observer.on_completed()
         };
-        let error = {
-            let observer = observer.clone();
-            move |error| observer.on_error(error)
-        };
-        self.original.subscribe((next, error, complete));
-        Subscription::new(|| observer.dispose())
+        let error = move |error| observer.on_error(error);
+        let sub = self.original.subscribe((next, error, complete));
+        Subscription::new(|| sub.unsubscribe())
     }
 }
 
