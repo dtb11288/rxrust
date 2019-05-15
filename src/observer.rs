@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 use std::rc::Rc;
-use rand::Rng;
+use std::time::SystemTime;
 
 pub trait Observer<I, E> {
     fn on_next(&self, item: I);
@@ -27,7 +27,7 @@ unsafe impl<'a, I, E> Sync for BaseObserver<'a, I, E> {}
 
 impl<'a, I, E> BaseObserver<'a, I, E> {
     pub fn new(observer: impl Observer<I, E> + 'a) -> Self {
-        let id = rand::thread_rng().gen();
+        let id = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().subsec_nanos();
         Self { id, observer: Rc::new(Mutex::new(Some(Box::new(observer)))) }
     }
 
