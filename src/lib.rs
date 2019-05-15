@@ -1,6 +1,7 @@
 mod observable;
 mod observer;
 mod subject;
+mod scheduler;
 mod extensions;
 
 pub mod factory;
@@ -14,10 +15,12 @@ pub mod prelude {
     pub use crate::extensions::fold::FoldExt;
     pub use crate::extensions::merge::MergeExt;
     pub use crate::extensions::flat_map::FlatMapExt;
+    pub use crate::extensions::thread::ThreadExt;
 }
 pub use observable::{BaseObservable, Subscription};
 pub use observer::BaseObserver;
 pub use subject::Subject;
+pub use scheduler::Scheduler;
 
 #[cfg(test)]
 mod tests {
