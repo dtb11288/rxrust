@@ -51,6 +51,8 @@ mod tests {
     #[test]
     fn it_works() {
         let obs = BaseObservable::<i32, ()>::new(|sub| {
+            let ten_millis = std::time::Duration::from_millis(20);
+            std::thread::sleep(ten_millis);
             sub.on_next(1);
             sub.on_next(2);
             sub.on_next(3);
@@ -67,8 +69,8 @@ mod tests {
         }
         let expected: Vec<i32> = vec![];
         assert_eq!(&expected, &*data.lock().unwrap());
-        let ten_millis = std::time::Duration::from_millis(20);
+        let ten_millis = std::time::Duration::from_millis(50);
         std::thread::sleep(ten_millis);
-        assert_eq!(&vec![1, 2, 4], &*data.lock().unwrap());
+        assert_eq!(&vec![1, 2, 3], &*data.lock().unwrap());
     }
 }

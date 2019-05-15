@@ -1,7 +1,7 @@
 use crate::observable::Observable;
 use crate::observer::Observer;
 use std::rc::Rc;
-use std::cell::RefCell;
+use std::cell::Cell;
 use crate::{Subscription, BaseObserver};
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -34,7 +34,7 @@ impl<'a, FM, O, OO> Observable<'a> for FlatMapObservable<FM, O>
     fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
         let and_then = self.and_then;
         let observer = BaseObserver::new(observer);
-        let completed = Rc::new(RefCell::new(false));
+        let completed = Rc::new(Cell::new(false));
         let subs = Rc::new(Mutex::new(HashMap::new()));
         let next = {
             let observer = observer.clone();
@@ -55,7 +55,7 @@ impl<'a, FM, O, OO> Observable<'a> for FlatMapObservable<FM, O>
                     move || {
                         let mut subs = subs.lock().unwrap();
                         subs.remove(&id);
-                        if *&*completed.borrow() && subs.len() == 0 {
+                        if completed.get() && subs.len() == 0 {
                             observer.on_completed()
                         }
                     }
@@ -69,7 +69,7 @@ impl<'a, FM, O, OO> Observable<'a> for FlatMapObservable<FM, O>
             let observer = observer.clone();
             let subs = subs.clone();
             move || {
-                completed.replace(true);
+                completed.set(true);
                 if subs.lock().unwrap().len() == 0 {
                     observer.on_completed()
                 }

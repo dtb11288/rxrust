@@ -22,9 +22,9 @@ impl<'a, F, O> Observable<'a> for FilterObservable<F, O> where O: Observable<'a>
     type Item = O::Item;
     type Error = O::Error;
 
-    fn subscribe(self, obs: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
         let filter = self.filter;
-        let observer = BaseObserver::new(obs);
+        let observer = BaseObserver::new(observer);
         let next = {
             let observer = observer.clone();
             move |item| { if filter(&item) { observer.on_next(item) } }

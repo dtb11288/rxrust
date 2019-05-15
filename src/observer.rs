@@ -8,10 +8,11 @@ pub trait Observer<I, E> {
     fn on_completed(self);
 }
 
+pub type ObserverId = u32;
 type ObserverBundle<'a, I, E> = Rc<Mutex<Option<Box<dyn BoxedObserver<I, E> + 'a>>>>;
 
 pub struct BaseObserver<'a, I: 'a, E: 'a> {
-    id: u32,
+    id: ObserverId,
     observer: ObserverBundle<'a, I, E>
 }
 
@@ -30,7 +31,7 @@ impl<'a, I, E> BaseObserver<'a, I, E> {
         Self { id, observer: Rc::new(Mutex::new(Some(Box::new(observer)))) }
     }
 
-    pub fn id(&self) -> u32 {
+    pub fn id(&self) -> ObserverId {
         self.id
     }
 

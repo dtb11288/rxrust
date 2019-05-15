@@ -1,15 +1,15 @@
 use std::rc::Rc;
-use std::cell::RefCell;
+use std::sync::Mutex;
 use crate::observable::Observable;
-use crate::observer::Observer;
+use crate::observer::{Observer, ObserverId};
 use crate::{BaseObserver, Subscription};
 use std::collections::HashMap;
 
-type ObserverBundle<'a, I, E> = Rc<RefCell<HashMap<u32, BaseObserver<'a, Rc<I>, Rc<E>>>>>;
+type ObserverBundle<'a, I, E> = Rc<Mutex<HashMap<ObserverId, BaseObserver<'a, Rc<I>, Rc<E>>>>>;
 
 pub struct Multicast<'a, I, E> {
     observers: ObserverBundle<'a, I, E>,
-    subscription: Rc<RefCell<Option<Subscription<'a>>>>,
+    subscription: Rc<Mutex<Option<Subscription<'a>>>>,
 }
 
 unsafe impl<'a, I, E> Send for Multicast<'a, I, E> {}
@@ -25,29 +25,29 @@ impl<'a, O> ShareExt<'a> for O where O: Observable<'a> {}
 
 impl<'a, I, E> Multicast<'a, I, E> {
     pub fn new<O>(original: O) -> Self where O: Observable<'a, Item=I, Error=E> + 'a {
-        let observers: ObserverBundle<'a, I, E> = Rc::new(RefCell::new(HashMap::new()));
+        let observers: ObserverBundle<'a, I, E> = Rc::new(Mutex::new(HashMap::new()));
         let next = {
             let observers = observers.clone();
             move |item: I| {
                 let item = Rc::new(item);
-                observers.borrow_mut().iter().for_each(move |(_, o)| o.on_next(item.clone()))
+                observers.lock().unwrap().iter().for_each(move |(_, o)| o.on_next(item.clone()))
             }
         };
         let complete = {
             let observers = observers.clone();
             move || {
-                observers.borrow_mut().drain().for_each(move |(_, o)| o.on_completed())
+                observers.lock().unwrap().drain().for_each(move |(_, o)| o.on_completed())
             }
         };
         let error = {
             let observers = observers.clone();
             move |error: E| {
                 let error = Rc::new(error);
-                observers.borrow_mut().drain().for_each(move |(_, o)| o.on_error(error.clone()))
+                observers.lock().unwrap().drain().for_each(move |(_, o)| o.on_error(error.clone()))
             }
         };
         let sub = original.subscribe((next, error, complete));
-        Self { observers, subscription: Rc::new(RefCell::new(Some(sub))) }
+        Self { observers, subscription: Rc::new(Mutex::new(Some(sub))) }
     }
 
     pub fn fork(&self) -> Self {
@@ -61,12 +61,12 @@ impl<'a, I, E> Observable<'a> for Multicast<'a, I, E> {
 
     fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
         let observer = BaseObserver::new(observer);
-        self.observers.borrow_mut().insert(observer.id(), observer.clone());
+        self.observers.lock().unwrap().insert(observer.id(), observer.clone());
         Subscription::new(move || {
-            let mut observers = self.observers.borrow_mut();
+            let mut observers = self.observers.lock().unwrap();
             observers.remove(&observer.id());
             if observers.is_empty() {
-                if let Some(sub) = self.subscription.borrow_mut().take() {
+                if let Some(sub) = self.subscription.lock().unwrap().take() {
                     sub.unsubscribe()
                 }
             }
