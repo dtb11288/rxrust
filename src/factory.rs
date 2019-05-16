@@ -22,6 +22,13 @@ pub fn throw<'a, I, E>(error: E) -> impl Observable<'a, Item=I, Error=E> where I
     BaseObservable::new(|sub: BaseObserver<'a, I, E>| sub.on_error(error))
 }
 
+pub fn from_value<'a, I, E>(i: I) -> impl Observable<'a, Item=I, Error=E> where I: 'a, E: 'a {
+    create(move |sub| {
+        sub.on_next(i);
+        sub.on_completed();
+    })
+}
+
 pub fn from_iter<'a, I, E>(iter: impl IntoIterator<Item=I> + 'a) -> impl Observable<'a, Item=I, Error=E> where I: 'a, E: 'a {
     create(move |sub| {
         iter.into_iter().for_each(|x| sub.on_next(x));
