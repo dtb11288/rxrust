@@ -49,6 +49,16 @@ impl<'a, I, E> Observable<'a> for BaseObservable<'a, I, E> {
     }
 }
 
+impl<'a, O> Observable<'a> for Box<O> where O: Observable<'a> + 'a {
+    type Item = O::Item;
+    type Error = O::Error;
+
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+        let sub = (*self).subscribe(observer);
+        Subscription::new(move || sub.unsubscribe())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::prelude::*;
