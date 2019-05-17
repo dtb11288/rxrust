@@ -1,6 +1,8 @@
 pub mod multicast;
 pub mod map;
+pub mod map_error;
 pub mod filter;
+pub mod filter_map;
 pub mod tap;
 pub mod fold;
 pub mod merge;

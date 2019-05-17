@@ -2,23 +2,23 @@ use crate::observable::Observable;
 use crate::observer::Observer;
 use crate::{Subscription, BaseObserver};
 
-pub struct MapObservable<M, O> {
+pub struct FilterMapObservable<M, O> {
     map: M,
     original: O,
 }
 
-unsafe impl<M, O> Send for MapObservable<M, O> {}
-unsafe impl<M, O> Sync for MapObservable<M, O> {}
+unsafe impl<M, O> Send for FilterMapObservable<M, O> {}
+unsafe impl<M, O> Sync for FilterMapObservable<M, O> {}
 
-pub trait MapExt<'a>: Observable<'a> + Sized {
-    fn map<M, I>(self, map: M) -> MapObservable<M, Self> where M: Fn(Self::Item) -> I + 'a {
-        MapObservable { map, original: self }
+pub trait FilterMapExt<'a>: Observable<'a> + Sized {
+    fn filter_map<M, I>(self, map: M) -> FilterMapObservable<M, Self> where M: Fn(Self::Item) -> Option<I> + 'a {
+        FilterMapObservable { map, original: self }
     }
 }
 
-impl<'a, O> MapExt<'a> for O where O: Observable<'a> {}
+impl<'a, O> FilterMapExt<'a> for O where O: Observable<'a> {}
 
-impl<'a, I, M, O> Observable<'a> for MapObservable<M, O> where O: Observable<'a> + 'a, M: Fn(O::Item) -> I + Clone + 'a, I: 'a {
+impl<'a, I, M, O> Observable<'a> for FilterMapObservable<M, O> where O: Observable<'a> + 'a, M: Fn(O::Item) -> Option<I> + Clone + 'a, I: 'a {
     type Item = I;
     type Error = O::Error;
 
@@ -27,7 +27,11 @@ impl<'a, I, M, O> Observable<'a> for MapObservable<M, O> where O: Observable<'a>
         let observer = BaseObserver::new(observer);
         let next = {
             let observer = observer.clone();
-            move |item| observer.on_next(map(item))
+            move |item| {
+                if let Some(item) = map(item) {
+                    observer.on_next(item)
+                }
+            }
         };
         let complete = {
             let observer = observer.clone();
@@ -53,13 +57,21 @@ mod tests {
             let data = data.clone();
             obs
                 .fork()
-                .map(|x| x * 2)
+                .filter_map(|x| {
+                    if x > 1 {
+                        Some(x * 2)
+                    } else {
+                        None
+                    }
+                })
                 .subscribe(move |x| { data.lock().unwrap().push(x) });
         }
+        obs.on_next(1);
         obs.on_next(1);
         obs.on_next(2);
         obs.on_next(3);
 
-        assert_eq!(&vec![2, 4, 6], &*data.lock().unwrap());
+        assert_eq!(&vec![4, 6], &*data.lock().unwrap());
     }
 }
+

@@ -10,7 +10,9 @@ pub mod prelude {
     pub use crate::observer::Observer;
     pub use crate::extensions::multicast::ShareExt;
     pub use crate::extensions::map::MapExt;
+    pub use crate::extensions::map_error::MapErrorExt;
     pub use crate::extensions::filter::FilterExt;
+    pub use crate::extensions::filter_map::FilterMapExt;
     pub use crate::extensions::tap::TapExt;
     pub use crate::extensions::fold::FoldExt;
     pub use crate::extensions::merge::MergeExt;
