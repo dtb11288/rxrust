@@ -5,6 +5,9 @@ pub trait Observable<'a> {
     type Item: 'a;
     type Error: 'a;
     fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a>;
+    fn into_boxed(self) -> Box<Self> where Self: Sized + 'a {
+        Box::new(self)
+    }
 }
 
 pub struct Subscription<'a> {

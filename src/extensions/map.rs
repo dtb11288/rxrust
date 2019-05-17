@@ -7,12 +7,23 @@ pub struct MapObservable<M, O> {
     original: O,
 }
 
+pub struct MapErrorObservable<M, O> {
+    map: M,
+    original: O,
+}
+
 unsafe impl<M, O> Send for MapObservable<M, O> {}
 unsafe impl<M, O> Sync for MapObservable<M, O> {}
+unsafe impl<M, O> Send for MapErrorObservable<M, O> {}
+unsafe impl<M, O> Sync for MapErrorObservable<M, O> {}
 
 pub trait MapExt<'a>: Observable<'a> + Sized {
     fn map<M, I>(self, map: M) -> MapObservable<M, Self> where M: Fn(Self::Item) -> I + 'a {
         MapObservable { map, original: self }
+    }
+
+    fn map_err<M, E>(self, map: M) -> MapErrorObservable<M, Self> where M: Fn(Self::Error) -> E + 'a {
+        MapErrorObservable { map, original: self }
     }
 }
 
@@ -39,6 +50,27 @@ impl<'a, I, M, O> Observable<'a> for MapObservable<M, O> where O: Observable<'a>
     }
 }
 
+impl<'a, E, M, O> Observable<'a> for MapErrorObservable<M, O> where O: Observable<'a> + 'a, M: Fn(O::Error) -> E + Clone + 'a, E: 'a {
+    type Item = O::Item;
+    type Error = E;
+
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+        let map = self.map;
+        let observer = BaseObserver::new(observer);
+        let next = {
+            let observer = observer.clone();
+            move |item| observer.on_next(item)
+        };
+        let complete = {
+            let observer = observer.clone();
+            move || observer.on_completed()
+        };
+        let error = move |error| observer.on_error(map(error));
+        let sub = self.original.subscribe((next, error, complete));
+        Subscription::new(|| sub.unsubscribe())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, Mutex};
@@ -51,17 +83,24 @@ mod tests {
         let data = Arc::new(Mutex::new(Vec::new()));
         {
             let data = data.clone();
+            let data_error = data.clone();
             obs
                 .fork()
                 .map(|x| x * 2)
-                .subscribe(move |x| {
-                    data.lock().unwrap().push(x);
-                });
+                .map_err(|_| "error")
+                .subscribe((
+                    move |x| { data.lock().unwrap().push(x) },
+                    move |e| {
+                        assert_eq!("error", e);
+                        data_error.lock().unwrap().push(10);
+                    }
+                ));
         }
         obs.on_next(1);
         obs.on_next(2);
         obs.on_next(3);
+        obs.on_error(());
 
-        assert_eq!(&vec![2, 4, 6], &*data.lock().unwrap());
+        assert_eq!(&vec![2, 4, 6, 10], &*data.lock().unwrap());
     }
 }
