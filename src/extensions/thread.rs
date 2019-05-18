@@ -11,19 +11,19 @@ pub struct ThreadObservable<O> {
 unsafe impl<O> Send for ThreadObservable<O> {}
 unsafe impl<O> Sync for ThreadObservable<O> {}
 
-pub trait ThreadExt<'a>: Observable<'a> + Sized {
-    fn subscribe_on(self, scheduler: Scheduler) -> ThreadObservable<Self> where Self: 'a {
+pub trait ThreadExt: Observable + Sized {
+    fn subscribe_on(self, scheduler: Scheduler) -> ThreadObservable<Self> {
         ThreadObservable { scheduler, original: self }
     }
 }
 
-impl<'a, O> ThreadExt<'a> for O where O: Observable<'a> {}
+impl<'a, O> ThreadExt for O where O: Observable {}
 
-impl<O> Observable<'static> for ThreadObservable<O> where O: Observable<'static> + Send + Sync + 'static {
+impl<O> Observable for ThreadObservable<O> where O: Observable + Send + Sync + 'static {
     type Item = O::Item;
     type Error = O::Error;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'static) -> Subscription<'static> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'static) -> Subscription {
         let scheduler = self.scheduler;
         let observer = BaseObserver::new(observer);
         let observable = self.original;

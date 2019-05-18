@@ -15,23 +15,25 @@ pub struct FlatMapObservable<FM, O> {
 unsafe impl<FM, O> Send for FlatMapObservable<FM, O> {}
 unsafe impl<FM, O> Sync for FlatMapObservable<FM, O> {}
 
-pub trait FlatMapExt<'a>: Observable<'a> + Sized {
-    fn and_then<FM, OO>(self, and_then: FM) -> FlatMapObservable<FM, Self> where OO: Observable<'a> + 'a, FM: Fn(Self::Item) -> OO + Clone + 'a {
+pub trait FlatMapExt: Observable + Sized {
+    fn and_then<FM, OO>(self, and_then: FM) -> FlatMapObservable<FM, Self> where OO: Observable, FM: Fn(Self::Item) -> OO + Clone + 'static {
         FlatMapObservable { and_then, original: self }
     }
 }
 
-impl<'a, O> FlatMapExt<'a> for O where O: Observable<'a> {}
+impl<O> FlatMapExt for O where O: Observable {}
 
-impl<'a, FM, O, OO> Observable<'a> for FlatMapObservable<FM, O>
-    where O: Observable<'a, Error=OO::Error> + 'a,
-          OO: Observable<'a> + 'a,
-          FM: Fn(O::Item) -> OO + Clone + 'a,
+impl<FM, O, OO> Observable for FlatMapObservable<FM, O>
+    where O: Observable<Error=OO::Error>,
+          OO: Observable,
+          FM: Fn(O::Item) -> OO + Clone + 'static,
+          OO::Item: 'static,
+          OO::Error: 'static,
 {
     type Item = OO::Item;
     type Error = OO::Error;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'static) -> Subscription {
         let and_then = self.and_then;
         let observer = BaseObserver::new(observer);
         let completed = Rc::new(Cell::new(false));

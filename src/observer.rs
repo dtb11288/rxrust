@@ -9,24 +9,24 @@ pub trait Observer<I, E> {
 }
 
 pub type ObserverId = u32;
-type ObserverBundle<'a, I, E> = Rc<Mutex<Option<Box<dyn BoxedObserver<I, E> + 'a>>>>;
+type ObserverBundle<I, E> = Rc<Mutex<Option<Box<dyn BoxedObserver<I, E> + 'static>>>>;
 
-pub struct BaseObserver<'a, I: 'a, E: 'a> {
+pub struct BaseObserver<I, E> {
     id: ObserverId,
-    observer: ObserverBundle<'a, I, E>
+    observer: ObserverBundle<I, E>
 }
 
-impl<'a, I, E> Clone for BaseObserver<'a, I, E> {
+impl<I, E> Clone for BaseObserver<I, E> {
     fn clone(&self) -> Self {
         Self { id: self.id, observer: self.observer.clone() }
     }
 }
 
-unsafe impl<'a, I, E> Send for BaseObserver<'a, I, E> {}
-unsafe impl<'a, I, E> Sync for BaseObserver<'a, I, E> {}
+unsafe impl<I, E> Send for BaseObserver<I, E> {}
+unsafe impl<I, E> Sync for BaseObserver<I, E> {}
 
-impl<'a, I, E> BaseObserver<'a, I, E> {
-    pub fn new(observer: impl Observer<I, E> + 'a) -> Self {
+impl<I, E> BaseObserver<I, E> {
+    pub fn new(observer: impl Observer<I, E> + 'static) -> Self {
         let id = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().subsec_nanos();
         Self { id, observer: Rc::new(Mutex::new(Some(Box::new(observer)))) }
     }
@@ -40,7 +40,7 @@ impl<'a, I, E> BaseObserver<'a, I, E> {
     }
 }
 
-impl<'a, I, E> Observer<I, E> for BaseObserver<'a, I, E> {
+impl<I, E> Observer<I, E> for BaseObserver<I, E> {
     fn on_next(&self, item: I) {
         if let Some(observer) = self.observer.lock().unwrap().as_ref() {
             observer.on_next(item)

@@ -1,24 +1,24 @@
 use crate::observer::Observer;
 use crate::BaseObserver;
 
-pub trait Observable<'a> {
-    type Item: 'a;
-    type Error: 'a;
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a>;
-    fn into_boxed(self) -> Box<Self> where Self: Sized + 'a {
+pub trait Observable {
+    type Item;
+    type Error;
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'static) -> Subscription;
+    fn into_boxed(self) -> Box<Self> where Self: Sized {
         Box::new(self)
     }
 }
 
-pub struct Subscription<'a> {
-    unsubscribe: Box<dyn FnOnce() + 'a>
+pub struct Subscription {
+    unsubscribe: Box<dyn FnOnce() + 'static>
 }
 
-unsafe impl<'a> Send for Subscription<'a> {}
-unsafe impl<'a> Sync for Subscription<'a> {}
+unsafe impl Send for Subscription {}
+unsafe impl Sync for Subscription {}
 
-impl<'a> Subscription<'a> {
-    pub fn new(f: impl FnOnce() + 'a) -> Self {
+impl Subscription {
+    pub fn new(f: impl FnOnce() + 'static) -> Self {
         Self { unsubscribe: Box::new(f) }
     }
 
@@ -27,24 +27,24 @@ impl<'a> Subscription<'a> {
     }
 }
 
-pub struct BaseObservable<'a, I: 'a, E: 'a> {
-    subscribe: Box<dyn FnOnce(BaseObserver<'a, I, E>) + 'a>,
+pub struct BaseObservable<I, E> {
+    subscribe: Box<dyn FnOnce(BaseObserver<I, E>) + 'static>,
 }
 
-unsafe impl<'a, I, E> Send for BaseObservable<'a, I, E> {}
-unsafe impl<'a, I, E> Sync for BaseObservable<'a, I, E> {}
+unsafe impl<I, E> Send for BaseObservable<I, E> {}
+unsafe impl<I, E> Sync for BaseObservable<I, E> {}
 
-impl<'a, I, E> BaseObservable<'a, I, E> {
-    pub fn new<F>(subscribe: F) -> Self where F: FnOnce(BaseObserver<'a, I, E>) + 'a {
+impl<I, E> BaseObservable<I, E> {
+    pub fn new<F>(subscribe: F) -> Self where F: FnOnce(BaseObserver<I, E>) + 'static {
         Self { subscribe: Box::new(subscribe) }
     }
 }
 
-impl<'a, I, E> Observable<'a> for BaseObservable<'a, I, E> {
+impl<I, E> Observable for BaseObservable<I, E> where I: 'static, E: 'static {
     type Item = I;
     type Error = E;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'static) -> Subscription {
         let subscribe = self.subscribe;
         let observer = BaseObserver::new(observer);
         subscribe(observer.clone());
@@ -52,11 +52,11 @@ impl<'a, I, E> Observable<'a> for BaseObservable<'a, I, E> {
     }
 }
 
-impl<'a, O> Observable<'a> for Box<O> where O: Observable<'a> + 'a {
+impl<O> Observable for Box<O> where O: Observable {
     type Item = O::Item;
     type Error = O::Error;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'static) -> Subscription {
         let sub = (*self).subscribe(observer);
         Subscription::new(move || sub.unsubscribe())
     }

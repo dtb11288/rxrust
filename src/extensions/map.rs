@@ -10,19 +10,19 @@ pub struct MapObservable<M, O> {
 unsafe impl<M, O> Send for MapObservable<M, O> {}
 unsafe impl<M, O> Sync for MapObservable<M, O> {}
 
-pub trait MapExt<'a>: Observable<'a> + Sized {
-    fn map<M, I>(self, map: M) -> MapObservable<M, Self> where M: Fn(Self::Item) -> I + 'a {
+pub trait MapExt: Observable + Sized {
+    fn map<M, I>(self, map: M) -> MapObservable<M, Self> where M: Fn(Self::Item) -> I + 'static {
         MapObservable { map, original: self }
     }
 }
 
-impl<'a, O> MapExt<'a> for O where O: Observable<'a> {}
+impl<O> MapExt for O where O: Observable {}
 
-impl<'a, I, M, O> Observable<'a> for MapObservable<M, O> where O: Observable<'a> + 'a, M: Fn(O::Item) -> I + Clone + 'a, I: 'a {
+impl<I, M, O> Observable for MapObservable<M, O> where O: Observable, M: Fn(O::Item) -> I + Clone + 'static, I: 'static, O::Error: 'static {
     type Item = I;
     type Error = O::Error;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'static) -> Subscription {
         let map = self.map;
         let observer = BaseObserver::new(observer);
         let next = {

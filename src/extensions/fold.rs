@@ -13,19 +13,19 @@ pub struct FoldObservable<A, F, O> {
 unsafe impl<A, F, O> Send for FoldObservable<A, F, O> {}
 unsafe impl<A, F, O> Sync for FoldObservable<A, F, O> {}
 
-pub trait FoldExt<'a>: Observable<'a> + Sized {
-    fn fold<A, F>(self, init: A, fold: F) -> FoldObservable<A, F, Self> where F: Fn(A, Self::Item) -> A + 'a, Self: 'a {
+pub trait FoldExt: Observable + Sized {
+    fn fold<A, F>(self, init: A, fold: F) -> FoldObservable<A, F, Self> where F: Fn(A, Self::Item) -> A + 'static {
         FoldObservable { fold, original: self, init: Rc::new(RefCell::new(init)) }
     }
 }
 
-impl<'a, O> FoldExt<'a> for O where O: Observable<'a> {}
+impl<O> FoldExt for O where O: Observable {}
 
-impl<'a, A, F, O> Observable<'a> for FoldObservable<A, F, O> where F: Fn(A, O::Item) -> A + Clone + 'a, A: 'a, O: Observable<'a> + 'a {
+impl<A, F, O> Observable for FoldObservable<A, F, O> where F: Fn(A, O::Item) -> A + Clone + 'static, O: Observable, O::Error: 'static, A: 'static {
     type Item = A;
     type Error = O::Error;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'static) -> Subscription {
         let fold = self.fold;
         let init = self.init;
         let observer = BaseObserver::new(observer);

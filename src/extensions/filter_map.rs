@@ -10,19 +10,19 @@ pub struct FilterMapObservable<M, O> {
 unsafe impl<M, O> Send for FilterMapObservable<M, O> {}
 unsafe impl<M, O> Sync for FilterMapObservable<M, O> {}
 
-pub trait FilterMapExt<'a>: Observable<'a> + Sized {
-    fn filter_map<M, I>(self, map: M) -> FilterMapObservable<M, Self> where M: Fn(Self::Item) -> Option<I> + 'a {
+pub trait FilterMapExt: Observable + Sized {
+    fn filter_map<M, I>(self, map: M) -> FilterMapObservable<M, Self> where M: Fn(Self::Item) -> Option<I> + 'static {
         FilterMapObservable { map, original: self }
     }
 }
 
-impl<'a, O> FilterMapExt<'a> for O where O: Observable<'a> {}
+impl<O> FilterMapExt for O where O: Observable {}
 
-impl<'a, I, M, O> Observable<'a> for FilterMapObservable<M, O> where O: Observable<'a> + 'a, M: Fn(O::Item) -> Option<I> + Clone + 'a, I: 'a {
+impl<I, M, O> Observable for FilterMapObservable<M, O> where O: Observable, M: Fn(O::Item) -> Option<I> + Clone + 'static, I: 'static, O::Error: 'static {
     type Item = I;
     type Error = O::Error;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'static) -> Subscription {
         let map = self.map;
         let observer = BaseObserver::new(observer);
         let next = {

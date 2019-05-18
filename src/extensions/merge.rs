@@ -12,19 +12,19 @@ pub struct MergeObservable<O, OO> {
 unsafe impl<O, OO> Send for MergeObservable<O, OO> {}
 unsafe impl<O, OO> Sync for MergeObservable<O, OO> {}
 
-pub trait MergeExt<'a>: Observable<'a> + Sized {
-    fn merge<O>(self, other: O) -> MergeObservable<Self, O> where O: Observable<'a, Item=<Self as Observable<'a>>::Item, Error=<Self as Observable<'a>>::Error> + 'a {
+pub trait MergeExt: Observable + Sized {
+    fn merge<O>(self, other: O) -> MergeObservable<Self, O> where O: Observable<Item=<Self as Observable>::Item, Error=<Self as Observable>::Error> {
         MergeObservable { original: self, other }
     }
 }
 
-impl<'a, O> MergeExt<'a> for O where O: Observable<'a> {}
+impl<O> MergeExt for O where O: Observable {}
 
-impl<'a, O, OO> Observable<'a> for MergeObservable<O, OO> where O: Observable<'a> + 'a, OO: Observable<'a, Item=O::Item, Error=O::Error> + 'a {
+impl<O, OO> Observable for MergeObservable<O, OO> where O: Observable, OO: Observable<Item=O::Item, Error=O::Error>, O::Item: 'static, O::Error: 'static {
     type Item = O::Item;
     type Error = O::Error;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'static) -> Subscription {
         let observer = BaseObserver::new(observer);
         let next = {
             let observer = observer.clone();

@@ -5,27 +5,27 @@ use crate::observer::{Observer, ObserverId};
 use crate::{BaseObserver, Subscription};
 use std::collections::HashMap;
 
-type ObserverBundle<'a, I, E> = Rc<Mutex<HashMap<ObserverId, BaseObserver<'a, Rc<I>, Rc<E>>>>>;
+type ObserverBundle<I, E> = Rc<Mutex<HashMap<ObserverId, BaseObserver<Rc<I>, Rc<E>>>>>;
 
-pub struct Multicast<'a, I, E> {
-    observers: ObserverBundle<'a, I, E>,
-    subscription: Rc<Mutex<Option<Subscription<'a>>>>,
+pub struct Multicast<I, E> {
+    observers: ObserverBundle<I, E>,
+    subscription: Rc<Mutex<Option<Subscription>>>,
 }
 
-unsafe impl<'a, I, E> Send for Multicast<'a, I, E> {}
-unsafe impl<'a, I, E> Sync for Multicast<'a, I, E> {}
+unsafe impl<I, E> Send for Multicast<I, E> {}
+unsafe impl<I, E> Sync for Multicast<I, E> {}
 
-pub trait ShareExt<'a>: Observable<'a> + Sized {
-    fn share(self) -> Multicast<'a, <Self as Observable<'a>>::Item, <Self as Observable<'a>>::Error>
-        where Self: 'a, <Self as Observable<'a>>::Item: 'a, <Self as Observable<'a>>::Error: 'a
+pub trait ShareExt: Observable + Sized {
+    fn share(self) -> Multicast<<Self as Observable>::Item, <Self as Observable>::Error>
+        where <Self as Observable>::Item: 'static, <Self as Observable>::Error: 'static
     { Multicast::new(self) }
 }
 
-impl<'a, O> ShareExt<'a> for O where O: Observable<'a> {}
+impl<O> ShareExt for O where O: Observable {}
 
-impl<'a, I, E> Multicast<'a, I, E> {
-    pub fn new<O>(original: O) -> Self where O: Observable<'a, Item=I, Error=E> + 'a {
-        let observers: ObserverBundle<'a, I, E> = Rc::new(Mutex::new(HashMap::new()));
+impl<I, E> Multicast<I, E> where I: 'static, E: 'static {
+    pub fn new<O>(original: O) -> Self where O: Observable<Item=I, Error=E> {
+        let observers: ObserverBundle<I, E> = Rc::new(Mutex::new(HashMap::new()));
         let next = {
             let observers = observers.clone();
             move |item: I| {
@@ -55,11 +55,11 @@ impl<'a, I, E> Multicast<'a, I, E> {
     }
 }
 
-impl<'a, I, E> Observable<'a> for Multicast<'a, I, E> {
+impl<I, E> Observable for Multicast<I, E> where I: 'static, E: 'static {
     type Item = Rc<I>;
     type Error = Rc<E>;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'static) -> Subscription {
         let observer = BaseObserver::new(observer);
         self.observers.lock().unwrap().insert(observer.id(), observer.clone());
         Subscription::new(move || {

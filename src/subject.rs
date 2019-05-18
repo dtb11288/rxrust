@@ -4,16 +4,16 @@ use crate::observer::Observer;
 use crate::observable::Observable;
 use crate::{BaseObserver, Subscription};
 
-type ObserverBundle<'a, I, E> = Rc<RefCell<Option<BaseObserver<'a, I, E>>>>;
+type ObserverBundle<I, E> = Rc<RefCell<Option<BaseObserver<I, E>>>>;
 
-pub struct Subject<'a, I, E> {
-    subscriber: ObserverBundle<'a, I, E>
+pub struct Subject<I, E> {
+    subscriber: ObserverBundle<I, E>
 }
 
-unsafe impl<'a, I, E> Send for Subject<'a, I, E> {}
-unsafe impl<'a, I, E> Sync for Subject<'a, I, E> {}
+unsafe impl<I, E> Send for Subject<I, E> {}
+unsafe impl<I, E> Sync for Subject<I, E> {}
 
-impl<'a, I, E> Subject<'a, I, E> {
+impl<I, E> Subject<I, E> {
     pub fn new() -> Self {
         Self { subscriber: Rc::new(RefCell::new(None)) }
     }
@@ -23,18 +23,18 @@ impl<'a, I, E> Subject<'a, I, E> {
     }
 }
 
-impl<'a, I, E> Observable<'a> for Subject<'a, I, E> {
+impl<I, E> Observable for Subject<I, E> where I: 'static, E: 'static {
     type Item = I;
     type Error = E;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'static) -> Subscription {
         let observer = BaseObserver::new(observer);
         self.subscriber.borrow_mut().replace(observer.clone());
         Subscription::new(move || observer.dispose())
     }
 }
 
-impl<'a, I, E> Observer<I, E> for Subject<'a, I, E> {
+impl<I, E> Observer<I, E> for Subject<I, E> {
     fn on_next(&self, item: I) {
         if let Some(sub) = self.subscriber.borrow_mut().as_ref() {
             sub.on_next(item)
