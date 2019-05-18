@@ -16,7 +16,7 @@ unsafe impl<FM, O> Send for FlatMapObservable<FM, O> {}
 unsafe impl<FM, O> Sync for FlatMapObservable<FM, O> {}
 
 pub trait FlatMapExt<'a>: Observable<'a> + Sized {
-    fn and_then<FM, OO>(self, and_then: FM) -> FlatMapObservable<FM, Self> where OO: Observable<'a> + 'a, FM: Fn(Self::Item) -> OO + Clone + 'a {
+    fn and_then<FM, OO>(self, and_then: FM) -> FlatMapObservable<FM, Self> where OO: Observable<'a> + 'a, FM: Fn(Self::Item) -> OO + 'a {
         FlatMapObservable { and_then, original: self }
     }
 }
@@ -26,7 +26,7 @@ impl<'a, O> FlatMapExt<'a> for O where O: Observable<'a> {}
 impl<'a, FM, O, OO> Observable<'a> for FlatMapObservable<FM, O>
     where O: Observable<'a, Error=OO::Error> + 'a,
           OO: Observable<'a> + 'a,
-          FM: Fn(O::Item) -> OO + Clone + 'a,
+          FM: Fn(O::Item) -> OO + 'a,
 {
     type Item = OO::Item;
     type Error = OO::Error;

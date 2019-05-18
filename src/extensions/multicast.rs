@@ -16,8 +16,7 @@ unsafe impl<'a, I, E> Send for Multicast<'a, I, E> {}
 unsafe impl<'a, I, E> Sync for Multicast<'a, I, E> {}
 
 pub trait ShareExt<'a>: Observable<'a> + Sized {
-    fn share(self) -> Multicast<'a, <Self as Observable<'a>>::Item, <Self as Observable<'a>>::Error>
-        where Self: 'a, <Self as Observable<'a>>::Item: 'a, <Self as Observable<'a>>::Error: 'a
+    fn share(self) -> Multicast<'a, <Self as Observable<'a>>::Item, <Self as Observable<'a>>::Error> where Self: 'a
     { Multicast::new(self) }
 }
 

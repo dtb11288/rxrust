@@ -21,7 +21,7 @@ pub trait FoldExt<'a>: Observable<'a> + Sized {
 
 impl<'a, O> FoldExt<'a> for O where O: Observable<'a> {}
 
-impl<'a, A, F, O> Observable<'a> for FoldObservable<A, F, O> where F: Fn(A, O::Item) -> A + Clone + 'a, A: 'a, O: Observable<'a> + 'a {
+impl<'a, A, F, O> Observable<'a> for FoldObservable<A, F, O> where F: Fn(A, O::Item) -> A + 'a, A: 'a, O: Observable<'a> + 'a {
     type Item = A;
     type Error = O::Error;
 

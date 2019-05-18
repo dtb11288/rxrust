@@ -18,7 +18,7 @@ pub trait FilterMapExt<'a>: Observable<'a> + Sized {
 
 impl<'a, O> FilterMapExt<'a> for O where O: Observable<'a> {}
 
-impl<'a, I, M, O> Observable<'a> for FilterMapObservable<M, O> where O: Observable<'a> + 'a, M: Fn(O::Item) -> Option<I> + Clone + 'a, I: 'a {
+impl<'a, I, M, O> Observable<'a> for FilterMapObservable<M, O> where O: Observable<'a> + 'a, M: Fn(O::Item) -> Option<I> + 'a, I: 'a {
     type Item = I;
     type Error = O::Error;
 

@@ -18,7 +18,7 @@ pub trait MapExt<'a>: Observable<'a> + Sized {
 
 impl<'a, O> MapExt<'a> for O where O: Observable<'a> {}
 
-impl<'a, I, M, O> Observable<'a> for MapObservable<M, O> where O: Observable<'a> + 'a, M: Fn(O::Item) -> I + Clone + 'a, I: 'a {
+impl<'a, I, M, O> Observable<'a> for MapObservable<M, O> where O: Observable<'a> + 'a, M: Fn(O::Item) -> I + 'a, I: 'a {
     type Item = I;
     type Error = O::Error;
 

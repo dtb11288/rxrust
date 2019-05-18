@@ -60,7 +60,7 @@ impl<'a, I, E> Observer<I, E> for BaseObserver<'a, I, E> {
     }
 }
 
-impl<I, F, E> Observer<I, E> for F where F: Fn(I) + Clone {
+impl<I, F, E> Observer<I, E> for F where F: Fn(I) {
     fn on_next(&self, item: I) {
         self(item);
     }
@@ -72,7 +72,7 @@ impl<I, F, E> Observer<I, E> for F where F: Fn(I) + Clone {
     fn on_completed(self) {}
 }
 
-impl<I, N, E, Err> Observer<I, Err> for (N, E) where N: Fn(I) + Clone, E: FnOnce(Err) + Clone {
+impl<I, N, E, Err> Observer<I, Err> for (N, E) where N: Fn(I), E: FnOnce(Err) {
     fn on_next(&self, item: I) {
         self.0(item);
     }
@@ -84,7 +84,7 @@ impl<I, N, E, Err> Observer<I, Err> for (N, E) where N: Fn(I) + Clone, E: FnOnce
     fn on_completed(self) {}
 }
 
-impl<I, N, C, E, Err> Observer<I, Err> for (N, E, C) where N: Fn(I) + Clone, C: FnOnce() + Clone, E: FnOnce(Err) + Clone {
+impl<I, N, C, E, Err> Observer<I, Err> for (N, E, C) where N: Fn(I), C: FnOnce(), E: FnOnce(Err) {
     fn on_next(&self, item: I) {
         self.0(item);
     }

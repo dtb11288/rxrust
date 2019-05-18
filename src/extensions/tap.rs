@@ -18,7 +18,7 @@ pub trait TapExt<'a>: Observable<'a> + Sized {
 
 impl<'a, O> TapExt<'a> for O where O: Observable<'a> {}
 
-impl<'a, T, O> Observable<'a> for TapObservable<T, O> where O: Observable<'a> + 'a, T: Fn(&O::Item) + Clone + 'a, O::Item: 'a {
+impl<'a, T, O> Observable<'a> for TapObservable<T, O> where O: Observable<'a> + 'a, T: Fn(&O::Item) + 'a {
     type Item = O::Item;
     type Error = O::Error;
 
