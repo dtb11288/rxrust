@@ -22,6 +22,7 @@ pub mod prelude {
 pub use observable::{BaseObservable, Subscription};
 pub use observer::BaseObserver;
 pub use subject::Subject;
+pub use extensions::multicast::Multicast;
 pub use scheduler::Scheduler;
 
 //#[cfg(test)]
