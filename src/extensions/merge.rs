@@ -1,8 +1,8 @@
 use std::rc::Rc;
-use std::cell::RefCell;
 use crate::observable::Observable;
 use crate::observer::Observer;
 use crate::{Subscription, BaseObserver};
+use std::sync::Mutex;
 
 pub struct MergeObservable<O, OO> {
     original: O,
@@ -31,13 +31,13 @@ impl<'a, O, OO> Observable<'a> for MergeObservable<O, OO> where O: Observable<'a
             move |item| observer.on_next(item)
         };
         let complete = {
-            let completed = Rc::new(RefCell::new(false));
+            let completed = Rc::new(Mutex::new(false));
             let observer = observer.clone();
             move || {
-                if *&*completed.borrow() {
+                if *&*completed.lock().unwrap() {
                     observer.on_completed()
                 } else {
-                    completed.replace(true);
+                    *completed.lock().unwrap() = true;
                 }
             }
         };
