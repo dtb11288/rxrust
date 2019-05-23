@@ -1,5 +1,5 @@
 # Reactive Extension written in Rust
-This is an subset of extensions that basically working
+This is an subset of extensions that basically working (require Rust 1.35+)
 
 ## Example:
 ```rust
