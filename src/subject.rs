@@ -1,22 +1,17 @@
-use std::rc::Rc;
 use crate::observer::Observer;
 use crate::observable::Observable;
 use crate::{BaseObserver, Subscription};
-use std::sync::Mutex;
+use std::sync::{Mutex, Arc};
 
-type ObserverBundle<'a, I, E> = Rc<Mutex<Option<BaseObserver<'a, I, E>>>>;
+type ObserverBundle<'a, I, E> = Arc<Mutex<Option<BaseObserver<'a, I, E>>>>;
 
 pub struct Subject<'a, I, E> {
     subscriber: ObserverBundle<'a, I, E>
 }
 
-unsafe impl<'a, I, E> Send for Subject<'a, I, E> {}
-
-unsafe impl<'a, I, E> Sync for Subject<'a, I, E> {}
-
 impl<'a, I, E> Subject<'a, I, E> {
     pub fn new() -> Self {
-        Self { subscriber: Rc::new(Mutex::new(None)) }
+        Self { subscriber: Arc::new(Mutex::new(None)) }
     }
 
     pub fn fork(&self) -> Self {

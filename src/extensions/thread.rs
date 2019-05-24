@@ -8,9 +8,6 @@ pub struct ThreadObservable<O> {
     original: O,
 }
 
-unsafe impl<O> Send for ThreadObservable<O> {}
-unsafe impl<O> Sync for ThreadObservable<O> {}
-
 pub trait ThreadExt<'a>: Observable<'a> + Sized {
     fn subscribe_on(self, scheduler: Scheduler) -> ThreadObservable<Self> where Self: 'a {
         ThreadObservable { scheduler, original: self }

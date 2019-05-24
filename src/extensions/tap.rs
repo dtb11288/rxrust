@@ -7,9 +7,6 @@ pub struct TapObservable<T, O> {
     original: O,
 }
 
-unsafe impl<T, O> Send for TapObservable<T, O> {}
-unsafe impl<T, O> Sync for TapObservable<T, O> {}
-
 pub trait TapExt<'a>: Observable<'a> + Sized {
     fn tap<M>(self, tap: M) -> TapObservable<M, Self> where M: Fn(&Self::Item) + 'a {
         TapObservable { tap, original: self }

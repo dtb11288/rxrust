@@ -1,5 +1,4 @@
-use std::sync::Mutex;
-use std::rc::Rc;
+use std::sync::{Mutex, Arc};
 use std::time::SystemTime;
 
 pub trait Observer<I, E> {
@@ -9,7 +8,7 @@ pub trait Observer<I, E> {
 }
 
 pub type ObserverId = u32;
-type ObserverBundle<'a, I, E> = Rc<Mutex<Option<Box<dyn BoxedObserver<I, E> + 'a>>>>;
+type ObserverBundle<'a, I, E> = Arc<Mutex<Option<Box<dyn BoxedObserver<I, E> + 'a>>>>;
 
 pub struct BaseObserver<'a, I: 'a, E: 'a> {
     id: ObserverId,
@@ -28,7 +27,7 @@ unsafe impl<'a, I, E> Sync for BaseObserver<'a, I, E> {}
 impl<'a, I, E> BaseObserver<'a, I, E> {
     pub fn new(observer: impl Observer<I, E> + 'a) -> Self {
         let id = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().subsec_nanos();
-        Self { id, observer: Rc::new(Mutex::new(Some(Box::new(observer)))) }
+        Self { id, observer: Arc::new(Mutex::new(Some(Box::new(observer)))) }
     }
 
     pub fn id(&self) -> ObserverId {

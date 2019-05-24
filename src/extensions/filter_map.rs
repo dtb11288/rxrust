@@ -7,9 +7,6 @@ pub struct FilterMapObservable<M, O> {
     original: O,
 }
 
-unsafe impl<M, O> Send for FilterMapObservable<M, O> {}
-unsafe impl<M, O> Sync for FilterMapObservable<M, O> {}
-
 pub trait FilterMapExt<'a>: Observable<'a> + Sized {
     fn filter_map<M, I>(self, map: M) -> FilterMapObservable<M, Self> where M: Fn(Self::Item) -> Option<I> + 'a {
         FilterMapObservable { map, original: self }

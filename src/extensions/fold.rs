@@ -1,21 +1,17 @@
 use crate::observable::Observable;
 use crate::observer::Observer;
 use crate::{Subscription, BaseObserver};
-use std::rc::Rc;
-use std::cell::RefCell;
+use std::sync::{Arc, Mutex};
 
 pub struct FoldObservable<A, F, O> {
     fold: F,
     original: O,
-    init: Rc<RefCell<A>>,
+    init: Arc<Mutex<A>>,
 }
-
-unsafe impl<A, F, O> Send for FoldObservable<A, F, O> {}
-unsafe impl<A, F, O> Sync for FoldObservable<A, F, O> {}
 
 pub trait FoldExt<'a>: Observable<'a> + Sized {
     fn fold<A, F>(self, init: A, fold: F) -> FoldObservable<A, F, Self> where F: Fn(A, Self::Item) -> A + 'a, Self: 'a {
-        FoldObservable { fold, original: self, init: Rc::new(RefCell::new(init)) }
+        FoldObservable { fold, original: self, init: Arc::new(Mutex::new(init)) }
     }
 }
 
@@ -32,8 +28,8 @@ impl<'a, A, F, O> Observable<'a> for FoldObservable<A, F, O> where F: Fn(A, O::I
         let next = {
             let obs = observer.clone();
             move |item| {
-                let acc = fold(unsafe { std::mem::transmute_copy(&*init.borrow()) }, item);
-                init.replace(unsafe { std::mem::transmute_copy(&acc) });
+                let acc = fold(unsafe { std::mem::transmute_copy(&*init.lock().unwrap()) }, item);
+                *init.lock().unwrap() = unsafe { std::mem::transmute_copy(&acc) };
                 obs.on_next(acc);
             }
         };

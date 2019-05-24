@@ -1,16 +1,12 @@
-use std::rc::Rc;
 use crate::observable::Observable;
 use crate::observer::Observer;
 use crate::{Subscription, BaseObserver};
-use std::sync::Mutex;
+use std::sync::{Mutex, Arc};
 
 pub struct MergeObservable<O, OO> {
     original: O,
     other: OO,
 }
-
-unsafe impl<O, OO> Send for MergeObservable<O, OO> {}
-unsafe impl<O, OO> Sync for MergeObservable<O, OO> {}
 
 pub trait MergeExt<'a>: Observable<'a> + Sized {
     fn merge<O>(self, other: O) -> MergeObservable<Self, O> where O: Observable<'a, Item=<Self as Observable<'a>>::Item, Error=<Self as Observable<'a>>::Error> + 'a {
@@ -31,7 +27,7 @@ impl<'a, O, OO> Observable<'a> for MergeObservable<O, OO> where O: Observable<'a
             move |item| observer.on_next(item)
         };
         let complete = {
-            let completed = Rc::new(Mutex::new(false));
+            let completed = Arc::new(Mutex::new(false));
             let observer = observer.clone();
             move || {
                 if *&*completed.lock().unwrap() {

@@ -7,9 +7,6 @@ pub struct MapObservable<M, O> {
     original: O,
 }
 
-unsafe impl<M, O> Send for MapObservable<M, O> {}
-unsafe impl<M, O> Sync for MapObservable<M, O> {}
-
 pub trait MapExt<'a>: Observable<'a> + Sized {
     fn map<M, I>(self, map: M) -> MapObservable<M, Self> where M: Fn(Self::Item) -> I + 'a {
         MapObservable { map, original: self }

@@ -1,19 +1,14 @@
 use crate::observable::Observable;
 use crate::observer::Observer;
-use std::rc::Rc;
-use std::cell::Cell;
 use crate::{Subscription, BaseObserver};
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Mutex, Arc};
 use std::time::SystemTime;
 
 pub struct FlatMapObservable<FM, O> {
     and_then: FM,
     original: O,
 }
-
-unsafe impl<FM, O> Send for FlatMapObservable<FM, O> {}
-unsafe impl<FM, O> Sync for FlatMapObservable<FM, O> {}
 
 pub trait FlatMapExt<'a>: Observable<'a> + Sized {
     fn and_then<FM, OO>(self, and_then: FM) -> FlatMapObservable<FM, Self> where OO: Observable<'a> + 'a, FM: Fn(Self::Item) -> OO + 'a {
@@ -34,8 +29,8 @@ impl<'a, FM, O, OO> Observable<'a> for FlatMapObservable<FM, O>
     fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
         let and_then = self.and_then;
         let observer = BaseObserver::new(observer);
-        let completed = Rc::new(Cell::new(false));
-        let subs = Rc::new(Mutex::new(HashMap::new()));
+        let completed = Arc::new(Mutex::new(false));
+        let subs = Arc::new(Mutex::new(HashMap::new()));
         let next = {
             let observer = observer.clone();
             let completed = completed.clone();
@@ -55,7 +50,7 @@ impl<'a, FM, O, OO> Observable<'a> for FlatMapObservable<FM, O>
                     move || {
                         let mut subs = subs.lock().unwrap();
                         subs.remove(&id);
-                        if completed.get() && subs.len() == 0 {
+                        if *completed.lock().unwrap() && subs.len() == 0 {
                             observer.on_completed()
                         }
                     }
@@ -69,7 +64,7 @@ impl<'a, FM, O, OO> Observable<'a> for FlatMapObservable<FM, O>
             let observer = observer.clone();
             let subs = subs.clone();
             move || {
-                completed.set(true);
+                *completed.lock().unwrap() = true;
                 if subs.lock().unwrap().len() == 0 {
                     observer.on_completed()
                 }

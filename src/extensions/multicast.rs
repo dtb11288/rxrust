@@ -1,19 +1,15 @@
-use std::rc::Rc;
-use std::sync::Mutex;
+use std::sync::{Mutex, Arc};
 use crate::observable::Observable;
 use crate::observer::{Observer, ObserverId};
 use crate::{BaseObserver, Subscription};
 use std::collections::HashMap;
 
-type ObserverBundle<'a, I, E> = Rc<Mutex<HashMap<ObserverId, BaseObserver<'a, Rc<I>, Rc<E>>>>>;
+type ObserverBundle<'a, I, E> = Arc<Mutex<HashMap<ObserverId, BaseObserver<'a, Arc<I>, Arc<E>>>>>;
 
 pub struct Multicast<'a, I, E> {
     observers: ObserverBundle<'a, I, E>,
-    subscription: Rc<Mutex<Option<Subscription<'a>>>>,
+    subscription: Arc<Mutex<Option<Subscription<'a>>>>,
 }
-
-unsafe impl<'a, I, E> Send for Multicast<'a, I, E> {}
-unsafe impl<'a, I, E> Sync for Multicast<'a, I, E> {}
 
 pub trait ShareExt<'a>: Observable<'a> + Sized {
     fn share(self) -> Multicast<'a, <Self as Observable<'a>>::Item, <Self as Observable<'a>>::Error> where Self: 'a
@@ -24,11 +20,11 @@ impl<'a, O> ShareExt<'a> for O where O: Observable<'a> {}
 
 impl<'a, I, E> Multicast<'a, I, E> {
     pub fn new<O>(original: O) -> Self where O: Observable<'a, Item=I, Error=E> + 'a {
-        let observers: ObserverBundle<'a, I, E> = Rc::new(Mutex::new(HashMap::new()));
+        let observers: ObserverBundle<'a, I, E> = Arc::new(Mutex::new(HashMap::new()));
         let next = {
             let observers = observers.clone();
             move |item: I| {
-                let item = Rc::new(item);
+                let item = Arc::new(item);
                 observers.lock().unwrap().iter().for_each(move |(_, o)| o.on_next(item.clone()))
             }
         };
@@ -41,12 +37,12 @@ impl<'a, I, E> Multicast<'a, I, E> {
         let error = {
             let observers = observers.clone();
             move |error: E| {
-                let error = Rc::new(error);
+                let error = Arc::new(error);
                 observers.lock().unwrap().drain().for_each(move |(_, o)| o.on_error(error.clone()))
             }
         };
         let sub = original.subscribe((next, error, complete));
-        Self { observers, subscription: Rc::new(Mutex::new(Some(sub))) }
+        Self { observers, subscription: Arc::new(Mutex::new(Some(sub))) }
     }
 
     pub fn fork(&self) -> Self {
@@ -55,8 +51,8 @@ impl<'a, I, E> Multicast<'a, I, E> {
 }
 
 impl<'a, I, E> Observable<'a> for Multicast<'a, I, E> {
-    type Item = Rc<I>;
-    type Error = Rc<E>;
+    type Item = Arc<I>;
+    type Error = Arc<E>;
 
     fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
         let observer = BaseObserver::new(observer);
@@ -79,6 +75,7 @@ mod tests {
     use crate::BaseObservable;
     use std::rc::Rc;
     use std::cell::RefCell;
+    use std::sync::Arc;
 
     #[test]
     fn it_works() {
@@ -100,15 +97,15 @@ mod tests {
         let share_data = Rc::new(RefCell::new(Vec::new()));
         {
             let data = share_data.clone();
-            obs.fork().subscribe(move |x: Rc<i32>| {
+            obs.fork().subscribe(move |x: Arc<i32>| {
                 data.borrow_mut().push(*&*x);
             });
             let data = share_data.clone();
-            obs.fork().subscribe(move |x: Rc<i32>| {
+            obs.fork().subscribe(move |x: Arc<i32>| {
                 data.borrow_mut().push(*&*x);
             });
             let data = share_data.clone();
-            obs.fork().subscribe(move |x: Rc<i32>| {
+            obs.fork().subscribe(move |x: Arc<i32>| {
                 data.borrow_mut().push(*&*x);
             });
         }

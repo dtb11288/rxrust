@@ -7,9 +7,6 @@ pub struct MapErrorObservable<M, O> {
     original: O,
 }
 
-unsafe impl<M, O> Send for MapErrorObservable<M, O> {}
-unsafe impl<M, O> Sync for MapErrorObservable<M, O> {}
-
 pub trait MapErrorExt<'a>: Observable<'a> + Sized {
     fn map_err<M, E>(self, map: M) -> MapErrorObservable<M, Self> where M: Fn(Self::Error) -> E + 'a {
         MapErrorObservable { map, original: self }
