@@ -16,6 +16,7 @@ pub mod prelude {
     pub use crate::extensions::tap::TapExt;
     pub use crate::extensions::fold::FoldExt;
     pub use crate::extensions::merge::MergeExt;
+    pub use crate::extensions::combine::CombineExt;
     pub use crate::extensions::flat_map::FlatMapExt;
     pub use crate::extensions::thread::ThreadExt;
 }
