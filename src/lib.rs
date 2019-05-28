@@ -6,7 +6,7 @@ mod extensions;
 
 pub mod factory;
 pub mod prelude {
-    pub use crate::observable::Observable;
+    pub use crate::observable::{Observable, BoxedObservable};
     pub use crate::observer::Observer;
     pub use crate::extensions::multicast::ShareExt;
     pub use crate::extensions::map::MapExt;

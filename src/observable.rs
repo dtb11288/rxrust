@@ -5,9 +5,6 @@ pub trait Observable<'a> {
     type Item: 'a;
     type Error: 'a;
     fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + Send + Sync + 'a) -> Subscription<'a>;
-    fn into_boxed(self) -> Box<Self> where Self: Sized + 'a {
-        Box::new(self)
-    }
 }
 
 pub struct Subscription<'a> {
@@ -46,12 +43,13 @@ impl<'a, I, E> Observable<'a> for BaseObservable<'a, I, E> {
     }
 }
 
-impl<'a, O> Observable<'a> for Box<O> where O: Observable<'a> + 'a {
-    type Item = O::Item;
-    type Error = O::Error;
+pub trait BoxedObservable<'a>: Observable<'a> + Sized {
+    fn subscribe_box(self: Box<Self>, observer: impl Observer<<Self as Observable<'a>>::Item, <Self as Observable<'a>>::Error> + Send + Sync + 'a) -> Subscription<'a>;
+}
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + Send + Sync + 'a) -> Subscription<'a> {
-        let sub = (*self).subscribe(observer);
+impl<'a, O> BoxedObservable<'a> for O where O: Observable<'a> {
+    fn subscribe_box(self: Box<Self>, observer: impl Observer<<Self as Observable<'a>>::Item, <Self as Observable<'a>>::Error> + Send + Sync + 'a) -> Subscription<'a> {
+        let sub = self.subscribe(observer);
         Subscription::new(move || sub.unsubscribe())
     }
 }
