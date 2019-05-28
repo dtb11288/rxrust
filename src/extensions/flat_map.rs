@@ -11,7 +11,7 @@ pub struct FlatMapObservable<FM, O> {
 }
 
 pub trait FlatMapExt<'a>: Observable<'a> + Sized {
-    fn and_then<FM, OO>(self, and_then: FM) -> FlatMapObservable<FM, Self> where OO: Observable<'a> + 'a, FM: Fn(Self::Item) -> OO + 'a {
+    fn and_then<FM, OO>(self, and_then: FM) -> FlatMapObservable<FM, Self> where OO: Observable<'a> + 'a, FM: Fn(Self::Item) -> OO + Send + Sync + 'a {
         FlatMapObservable { and_then, original: self }
     }
 }
@@ -21,12 +21,12 @@ impl<'a, O> FlatMapExt<'a> for O where O: Observable<'a> {}
 impl<'a, FM, O, OO> Observable<'a> for FlatMapObservable<FM, O>
     where O: Observable<'a, Error=OO::Error> + 'a,
           OO: Observable<'a> + 'a,
-          FM: Fn(O::Item) -> OO + 'a,
+          FM: Fn(O::Item) -> OO + Send + Sync + 'a,
 {
     type Item = OO::Item;
     type Error = OO::Error;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + Send + Sync + 'a) -> Subscription<'a> {
         let and_then = self.and_then;
         let observer = BaseObserver::new(observer);
         let completed = Arc::new(Mutex::new(false));

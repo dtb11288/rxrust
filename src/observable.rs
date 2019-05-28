@@ -4,21 +4,18 @@ use crate::BaseObserver;
 pub trait Observable<'a> {
     type Item: 'a;
     type Error: 'a;
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a>;
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + Send + Sync + 'a) -> Subscription<'a>;
     fn into_boxed(self) -> Box<Self> where Self: Sized + 'a {
         Box::new(self)
     }
 }
 
 pub struct Subscription<'a> {
-    unsubscribe: Box<dyn FnOnce() + 'a>
+    unsubscribe: Box<dyn FnOnce() + Send + Sync + 'a>
 }
 
-unsafe impl<'a> Send for Subscription<'a> {}
-unsafe impl<'a> Sync for Subscription<'a> {}
-
 impl<'a> Subscription<'a> {
-    pub fn new(f: impl FnOnce() + 'a) -> Self {
+    pub fn new<F>(f: F) -> Self where F: FnOnce() + Send + Sync + 'a {
         Self { unsubscribe: Box::new(f) }
     }
 
@@ -28,14 +25,11 @@ impl<'a> Subscription<'a> {
 }
 
 pub struct BaseObservable<'a, I: 'a, E: 'a> {
-    subscribe: Box<dyn FnOnce(BaseObserver<'a, I, E>) + 'a>,
+    subscribe: Box<dyn FnOnce(BaseObserver<'a, I, E>) + Send + Sync + 'a>,
 }
 
-unsafe impl<'a, I, E> Send for BaseObservable<'a, I, E> {}
-unsafe impl<'a, I, E> Sync for BaseObservable<'a, I, E> {}
-
 impl<'a, I, E> BaseObservable<'a, I, E> {
-    pub fn new<F>(subscribe: F) -> Self where F: FnOnce(BaseObserver<'a, I, E>) + 'a {
+    pub fn new<F>(subscribe: F) -> Self where F: FnOnce(BaseObserver<'a, I, E>) + Send + Sync + 'a {
         Self { subscribe: Box::new(subscribe) }
     }
 }
@@ -44,7 +38,7 @@ impl<'a, I, E> Observable<'a> for BaseObservable<'a, I, E> {
     type Item = I;
     type Error = E;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + Send + Sync + 'a) -> Subscription<'a> {
         let subscribe = self.subscribe;
         let observer = BaseObserver::new(observer);
         subscribe(observer.clone());
@@ -56,7 +50,7 @@ impl<'a, O> Observable<'a> for Box<O> where O: Observable<'a> + 'a {
     type Item = O::Item;
     type Error = O::Error;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + Send + Sync + 'a) -> Subscription<'a> {
         let sub = (*self).subscribe(observer);
         Subscription::new(move || sub.unsubscribe())
     }
@@ -66,8 +60,7 @@ impl<'a, O> Observable<'a> for Box<O> where O: Observable<'a> + 'a {
 mod tests {
     use crate::prelude::*;
     use crate::BaseObservable;
-    use std::rc::Rc;
-    use std::cell::RefCell;
+    use std::sync::{Mutex, Arc};
 
     #[test]
     fn sync() {
@@ -76,14 +69,14 @@ mod tests {
             sub.on_next(2);
             sub.on_next(3);
         });
-        let data = Rc::new(RefCell::new(Vec::new()));
+        let data = Arc::new(Mutex::new(Vec::new()));
         {
             let data = data.clone();
             obs.subscribe(move |x| {
-                data.borrow_mut().push(x);
+                data.lock().unwrap().push(x);
             });
         }
-        assert_eq!(&vec![1, 2, 3], &*data.borrow_mut());
+        assert_eq!(&vec![1, 2, 3], &*data.lock().unwrap());
     }
 
     #[test]
@@ -103,28 +96,34 @@ mod tests {
                 sub.on_next(5);
             });
         });
-        let data = Rc::new(RefCell::new(Vec::new()));
-        let sub = {
+        let data = Arc::new(Mutex::new(Vec::new()));
+        {
             let data = data.clone();
-            obs.subscribe(move |x| {
-                data.borrow_mut().push(x);
-            })
-        };
+            std::thread::spawn(move || {
+                let data = data.clone();
+                let sub = obs.subscribe(move |x| {
+                    data.lock().unwrap().push(x);
+                });
 
-        assert_eq!(&Vec::<i32>::new(), &*data.borrow_mut());
+                let millis = std::time::Duration::from_millis(250);
+                std::thread::sleep(millis);
+                sub.unsubscribe();
+            });
+        }
+
+        assert_eq!(&Vec::<i32>::new(), &*data.lock().unwrap());
 
         let millis = std::time::Duration::from_millis(150);
         std::thread::sleep(millis);
-        assert_eq!(&vec![1, 2, 3], &*data.borrow_mut());
+        assert_eq!(&vec![1, 2, 3], &*data.lock().unwrap());
 
         let millis = std::time::Duration::from_millis(100);
         std::thread::sleep(millis);
-        assert_eq!(&vec![1, 2, 3, 4], &*data.borrow_mut());
-        sub.unsubscribe();
+        assert_eq!(&vec![1, 2, 3, 4], &*data.lock().unwrap());
 
         let millis = std::time::Duration::from_millis(100);
         std::thread::sleep(millis);
-        assert_eq!(&vec![1, 2, 3, 4], &*data.borrow_mut());
+        assert_eq!(&vec![1, 2, 3, 4], &*data.lock().unwrap());
     }
 }
 

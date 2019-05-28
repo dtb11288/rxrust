@@ -16,11 +16,17 @@ pub trait CombineExt<'a>: Observable<'a> + Sized {
 
 impl<'a, O> CombineExt<'a> for O where O: Observable<'a> {}
 
-impl<'a, O, OO> Observable<'a> for CombineObservable<O, OO> where O: Observable<'a> + 'a, OO: Observable<'a, Error=O::Error> + 'a {
+impl<'a, O, OO> Observable<'a> for CombineObservable<O, OO>
+    where
+        O: Observable<'a> + 'a,
+        OO: Observable<'a, Error=O::Error> + 'a,
+        <O as Observable<'a>>::Item: Send + Sync,
+        <OO as Observable<'a>>::Item: Send + Sync,
+{
     type Item = (O::Item, OO::Item);
     type Error = O::Error;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + Send + Sync + 'a) -> Subscription<'a> {
         let item_1: Arc<Mutex<Option<O::Item>>> = Arc::new(Mutex::new(None));
         let item_2: Arc<Mutex<Option<OO::Item>>> = Arc::new(Mutex::new(None));
         let observer = BaseObserver::new(observer);

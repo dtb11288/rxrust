@@ -54,7 +54,7 @@ impl<'a, I, E> Observable<'a> for Multicast<'a, I, E> {
     type Item = Arc<I>;
     type Error = Arc<E>;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + Send + Sync + 'a) -> Subscription<'a> {
         let observer = BaseObserver::new(observer);
         self.observers.lock().unwrap().insert(observer.id(), observer.clone());
         Subscription::new(move || {
@@ -73,9 +73,7 @@ impl<'a, I, E> Observable<'a> for Multicast<'a, I, E> {
 mod tests {
     use crate::prelude::*;
     use crate::BaseObservable;
-    use std::rc::Rc;
-    use std::cell::RefCell;
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn it_works() {
@@ -94,24 +92,24 @@ mod tests {
                 sub.on_next(3);
             });
         }).share();
-        let share_data = Rc::new(RefCell::new(Vec::new()));
+        let share_data = Arc::new(Mutex::new(Vec::new()));
         {
             let data = share_data.clone();
             obs.fork().subscribe(move |x: Arc<i32>| {
-                data.borrow_mut().push(*&*x);
+                data.lock().unwrap().push(*&*x);
             });
             let data = share_data.clone();
             obs.fork().subscribe(move |x: Arc<i32>| {
-                data.borrow_mut().push(*&*x);
+                data.lock().unwrap().push(*&*x);
             });
             let data = share_data.clone();
             obs.fork().subscribe(move |x: Arc<i32>| {
-                data.borrow_mut().push(*&*x);
+                data.lock().unwrap().push(*&*x);
             });
         }
         let millis = std::time::Duration::from_millis(50);
         std::thread::sleep(millis);
-        assert_eq!(&vec![1, 1, 1, 2, 2, 2, 3, 3, 3], &*share_data.borrow_mut());
+        assert_eq!(&vec![1, 1, 1, 2, 2, 2, 3, 3, 3], &*share_data.lock().unwrap());
     }
 }
 

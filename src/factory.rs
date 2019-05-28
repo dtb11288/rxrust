@@ -2,7 +2,7 @@ use crate::observer::Observer;
 use crate::observable::Observable;
 use crate::{BaseObserver, BaseObservable, Subject};
 
-pub fn create<'a, I, E>(subscribe: impl FnOnce(BaseObserver<'a, I, E>) + 'a) -> BaseObservable<'a, I, E> where I: 'a, E: 'a {
+pub fn create<'a, I, E>(subscribe: impl FnOnce(BaseObserver<'a, I, E>) + Send + Sync + 'a) -> BaseObservable<'a, I, E> where I: 'a, E: 'a {
     BaseObservable::new(subscribe)
 }
 
@@ -18,25 +18,25 @@ pub fn never<'a, I, E>() -> impl Observable<'a, Item=I, Error=E> where I: 'a, E:
     create(move |_| {})
 }
 
-pub fn throw<'a, I, E>(error: E) -> impl Observable<'a, Item=I, Error=E> where I: 'a, E: 'a {
-    BaseObservable::new(|sub: BaseObserver<'a, I, E>| sub.on_error(error))
+pub fn throw<'a, I, E>(error: E) -> impl Observable<'a, Item=I, Error=E> where I: Send + Sync + 'a, E: Send + Sync + 'a {
+    BaseObservable::<I, E>::new(|sub| sub.on_error(error))
 }
 
-pub fn from_value<'a, I, E>(i: I) -> impl Observable<'a, Item=I, Error=E> where I: 'a, E: 'a {
+pub fn from_value<'a, I, E>(i: I) -> impl Observable<'a, Item=I, Error=E> where I: Send + Sync + 'a, E: Send + Sync + 'a {
     create(move |sub| {
         sub.on_next(i);
         sub.on_completed();
     })
 }
 
-pub fn from_iter<'a, I, E>(iter: impl IntoIterator<Item=I> + 'a) -> impl Observable<'a, Item=I, Error=E> where I: 'a, E: 'a {
+pub fn from_iter<'a, I, E>(iter: impl IntoIterator<Item=I> + Send + Sync + 'a) -> impl Observable<'a, Item=I, Error=E> where I: Send + Sync + 'a, E: Send + Sync + 'a {
     create(move |sub| {
         iter.into_iter().for_each(|x| sub.on_next(x));
         sub.on_completed();
     })
 }
 
-pub fn from_result<'a, I, E>(res: Result<I, E>) -> impl Observable<'a, Item=I, Error=E> where I: 'a, E: 'a {
+pub fn from_result<'a, I, E>(res: Result<I, E>) -> impl Observable<'a, Item=I, Error=E> where I: Send + Sync + 'a, E: Send + Sync + 'a {
     create(move |sub| {
         match res {
             Ok(item) => {
@@ -48,7 +48,7 @@ pub fn from_result<'a, I, E>(res: Result<I, E>) -> impl Observable<'a, Item=I, E
     })
 }
 
-pub fn from_option<'a, I, E>(opt: Option<I>) -> impl Observable<'a, Item=I, Error=E> where I: 'a, E: 'a {
+pub fn from_option<'a, I, E>(opt: Option<I>) -> impl Observable<'a, Item=I, Error=E> where I: Send + Sync + 'a, E: Send + Sync + 'a {
     create(|sub| {
         match opt {
             Some(item) => {

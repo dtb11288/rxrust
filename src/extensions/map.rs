@@ -8,18 +8,18 @@ pub struct MapObservable<M, O> {
 }
 
 pub trait MapExt<'a>: Observable<'a> + Sized {
-    fn map<M, I>(self, map: M) -> MapObservable<M, Self> where M: Fn(Self::Item) -> I + 'a {
+    fn map<M, I>(self, map: M) -> MapObservable<M, Self> where M: Fn(Self::Item) -> I + Send + Sync + 'a {
         MapObservable { map, original: self }
     }
 }
 
 impl<'a, O> MapExt<'a> for O where O: Observable<'a> {}
 
-impl<'a, I, M, O> Observable<'a> for MapObservable<M, O> where O: Observable<'a> + 'a, M: Fn(O::Item) -> I + 'a, I: 'a {
+impl<'a, I, M, O> Observable<'a> for MapObservable<M, O> where O: Observable<'a> + 'a, M: Fn(O::Item) -> I + Send + Sync + 'a, I: 'a {
     type Item = I;
     type Error = O::Error;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + Send + Sync + 'a) -> Subscription<'a> {
         let map = self.map;
         let observer = BaseObserver::new(observer);
         let next = {

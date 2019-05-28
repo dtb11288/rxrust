@@ -8,18 +8,18 @@ pub struct FilterObservable<F, O> {
 }
 
 pub trait FilterExt<'a>: Observable<'a> + Sized {
-    fn filter<F>(self, map: F) -> FilterObservable<F, Self> where F: Fn(&Self::Item) -> bool + 'a {
+    fn filter<F>(self, map: F) -> FilterObservable<F, Self> where F: Fn(&Self::Item) -> bool + Send + Sync + 'a {
         FilterObservable { filter: map, original: self }
     }
 }
 
 impl<'a, O> FilterExt<'a> for O where O: Observable<'a> {}
 
-impl<'a, F, O> Observable<'a> for FilterObservable<F, O> where O: Observable<'a> + 'a, F: Fn(&O::Item) -> bool + 'a, O::Item: 'a {
+impl<'a, F, O> Observable<'a> for FilterObservable<F, O> where O: Observable<'a> + 'a, F: Fn(&O::Item) -> bool + Send + Sync + 'a, O::Item: 'a {
     type Item = O::Item;
     type Error = O::Error;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + Send + Sync + 'a) -> Subscription<'a> {
         let filter = self.filter;
         let observer = BaseObserver::new(observer);
         let next = {

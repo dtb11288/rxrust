@@ -20,7 +20,7 @@ impl<'a, O, OO> Observable<'a> for MergeObservable<O, OO> where O: Observable<'a
     type Item = O::Item;
     type Error = O::Error;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + Send + Sync + 'a) -> Subscription<'a> {
         let observer = BaseObserver::new(observer);
         let next = {
             let observer = observer.clone();

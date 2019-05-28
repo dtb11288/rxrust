@@ -20,7 +20,7 @@ impl<O> Observable<'static> for ThreadObservable<O> where O: Observable<'static>
     type Item = O::Item;
     type Error = O::Error;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'static) -> Subscription<'static> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + Send + Sync + 'static) -> Subscription<'static> {
         let scheduler = self.scheduler;
         let observer = BaseObserver::new(observer);
         let observable = self.original;

@@ -23,7 +23,7 @@ impl<'a, I, E> Observable<'a> for Subject<'a, I, E> {
     type Item = I;
     type Error = E;
 
-    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, observer: impl Observer<Self::Item, Self::Error> + Send + Sync + 'a) -> Subscription<'a> {
         let observer = BaseObserver::new(observer);
         self.subscriber.lock().unwrap().replace(observer.clone());
         Subscription::new(move || observer.dispose())

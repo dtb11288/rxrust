@@ -20,7 +20,7 @@ impl<'a, O> Observable<'a> for TakeObservable<O> where O: Observable<'a> + 'a {
     type Item = O::Item;
     type Error = O::Error;
 
-    fn subscribe(self, obs: impl Observer<Self::Item, Self::Error> + 'a) -> Subscription<'a> {
+    fn subscribe(self, obs: impl Observer<Self::Item, Self::Error> + Send + Sync + 'a) -> Subscription<'a> {
         let observer = BaseObserver::new(obs);
         let count = self.count;
         let next = {
@@ -50,8 +50,7 @@ impl<'a, O> Observable<'a> for TakeObservable<O> where O: Observable<'a> + 'a {
 mod tests {
     use crate::prelude::*;
     use crate::BaseObservable;
-    use std::rc::Rc;
-    use std::cell::RefCell;
+    use std::sync::{Mutex, Arc};
 
     #[test]
     fn it_works() {
@@ -60,15 +59,15 @@ mod tests {
             sub.on_next(2);
             sub.on_next(3);
         });
-        let data = Rc::new(RefCell::new(Vec::new()));
+        let data = Arc::new(Mutex::new(Vec::new()));
         {
             let data = data.clone();
             obs
                 .take(2)
                 .subscribe(move |x| {
-                    data.borrow_mut().push(x);
+                    data.lock().unwrap().push(x);
                 });
         }
-        assert_eq!(&*data.borrow_mut(), &vec![1, 2]);
+        assert_eq!(&*data.lock().unwrap(), &vec![1, 2]);
     }
 }
